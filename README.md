@@ -1,56 +1,46 @@
-# Welcome to your Expo app 👋
+# VaultLite
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Self-custodial multi-chain wallet **demo** built with React Native + Expo (SDK 58, expo-router, TypeScript strict).
 
-## Get started
+> ⚠️ **TESTNETS ONLY** — Sepolia, Polygon Amoy, BSC Testnet, Base Sepolia, Tron Nile. Do not use with real funds.
 
-1. Install dependencies
+## Quick start
+```sh
+npm install
+cp .env.example .env   # set EXPO_PUBLIC_REOWN_PROJECT_ID
+npx expo start         # needs a dev build / Expo Go
+```
+Node ≥ 22.13 is recommended by Expo SDK 58.
 
-   ```bash
-   npm install
-   ```
+## Scripts
+| | |
+|---|---|
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | `expo lint` (ESLint flat config) |
+| `npm test` | Jest (`jest-expo`) — derivation vectors, vault crypto, config |
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+## Architecture
+```
+index.js                 polyfills → expo-router entry
+src/app/                 routes: (onboarding)/welcome|create|verify|import|security, lock, (tabs)/home
+src/crypto/              BIP-39/32 derivation (EVM, Tron; Solana stub), backup quiz
+src/vault/               encrypted vault (SecureStore), PIN + biometrics, in-memory session, auto-lock
+src/config/              env.ts (Reown id), chains.ts (testnet registry)
+src/modules/escrow/      MilestoneEscrow ABI + EscrowService interface/stub
+src/modules/smartAccount ERC-4337 SmartAccountProvider interface/stub
+docs/INTEGRATIONS.md     where ABIs, addresses, bundler/paymaster URLs plug in
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+### Keys
+- EVM: `m/44'/60'/0'/0/0`, address via viem `privateKeyToAccount`.
+- Tron: `m/44'/195'/0'/0/0`, address = base58check(0x41 ‖ keccak256(pubkey)[12:]) implemented with `@noble`/`@scure` only.
+- Solana: `m/44'/501'/0'/0'` (SLIP-0010 ed25519) — not yet implemented.
 
-### Other setup steps
+### Vault
+- Secret (mnemonic or private key) encrypted with XChaCha20-Poly1305 under KEK = scrypt(PIN, salt); stored in `expo-secure-store` (Keychain / Keystore, this-device-only).
+- PIN never stored; a separately-salted scrypt verifier checks it; 10 failed attempts lock the vault.
+- Biometrics: KEK also stored in SecureStore with `requireAuthentication` (OS biometric prompt).
+- Decrypted secret lives only in memory while unlocked; app going to background → lock.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Status
+Day 1: scaffold, keys, vault, onboarding/lock/home screens, config, extension-point stubs, tests.
