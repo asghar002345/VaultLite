@@ -45,7 +45,15 @@
           "faceIDPermission": "Allow VaultLite to use Face ID to unlock your wallet."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "VaultLite uses the camera to scan wallet addresses and WalletConnect QR codes.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
