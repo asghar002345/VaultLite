@@ -62,6 +62,14 @@ Skipped: BSC Testnet USDC (not listed by Circle), USDT on EVM testnets (no offic
 ## Send
 EVM: viem `estimateGas` (+20 %), EIP-1559 tiers in `src/lib/fees.ts`. Tron: TronGrid `createtransaction` / `triggersmartcontract` (fee_limit 100 TRX) → local secp256k1 signature over `txID` → `broadcasttransaction`; status via `gettransactioninfobyid`.
 
+## Day 3 additions
+- **QR scanner** — `src/app/scan.tsx` (expo-camera `CameraView`, QR only; permission text in `app.json` plugin, mic disabled). `src/lib/scan.ts` parses WalletConnect v2 URIs (needs `symKey` + `relay-protocol`), EIP-681 `ethereum:` (testnet chain ids only; `/transfer` calls not yet), `tron:` and bare addresses. Address results go back to `/send` via `src/lib/scan-bus.ts`; `mode=wc` pairs directly.
+- **Local tx history** — `src/store/history{,-core}.ts`, AsyncStorage key `vaultlite.history.v1` (max 200, serialized writes). Pending txs poll every 5 s; Home shows a Pending section, `/activity` lists everything. Only sends made from this device (no explorer indexing).
+- **Tron fee estimate** — `estimateTronFee` in `src/services/tron.ts`: builds the unsigned tx for its size, `getaccountresource` (free + staked bandwidth, energy), `getchainparameters` (`getTransactionFee`, `getEnergyFee`, activation fees, cached 10 min), `triggerconstantcontract` `energy_used` for TRC-20s, `getaccount` to detect unactivated recipients. Math in `tronFeeSun` (bandwidth all-or-nothing, energy shortfall burned).
+- **Custom tokens** — `/tokens/add`, stored under `vaultlite.customTokens.v1`. Verified on-chain at import (EVM: code exists + `decimals()`/`symbol()`/`name()`; Tron: same via constant calls). Custom tokens can never shadow curated addresses.
+- **Speed-up / cancel** — EVM sends now use an explicit pending nonce stored in history. Replacements reuse the nonce with fees `max(old × 1.125, market)` (`bumpFees`); cancel = 0-value self-send, 21 000 gas. Missing receipt + consumed nonce ⇒ shown as *Replaced*.
+- **Errors** — `src/lib/errors.ts` `humanizeError` maps viem/RPC/TronGrid errors to short messages and strips URLs.
+
 ## WalletConnect — `src/walletconnect/`
 Polyfills: `index.js` → `src/polyfills.ts`, with `@walletconnect/react-native-compat` first. Packages: `@reown/walletkit`, `@walletconnect/core`, `@walletconnect/utils`, peers `@react-native-async-storage/async-storage`, `@react-native-community/netinfo`, `expo-application`. Needs a dev build (native modules — not Expo Go).
 `walletkit.ts` inits WalletKit with `env.REOWN_PROJECT_ID`, handles `session_proposal` (approve with testnet-only `supportedNamespaces`, reject), lists/disconnects sessions, and forwards `session_request` to listeners (currently auto-rejected with code 4001 until the Day 4–5 signing UI). Tron Nile CAIP-2 `tron:0xcd8690dc` verified (Reown Tron RPC docs + Nile genesis blockID suffix).

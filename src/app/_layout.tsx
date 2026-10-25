@@ -37,6 +37,9 @@ function RootStack() {
         <Stack.Screen name="send/review" options={{ headerShown: true, title: 'Review' }} />
         <Stack.Screen name="send/status/[hash]" options={{ headerShown: true, title: 'Status', headerBackVisible: false }} />
         <Stack.Screen name="walletconnect/index" options={{ headerShown: true, title: 'WalletConnect' }} />
+        <Stack.Screen name="scan" options={{ presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="activity" options={{ headerShown: true, title: 'Activity' }} />
+        <Stack.Screen name="tokens/add" options={{ headerShown: true, title: 'Add token' }} />
       </Stack.Protected>
     </Stack>
     </>

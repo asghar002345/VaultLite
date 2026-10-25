@@ -9,7 +9,10 @@ import { Chip, Skeleton } from '@/components/wallet';
 import { CHAINS, type ChainKey } from '@/config/chains';
 import { isReownConfigured } from '@/config/env';
 import { Spacing } from '@/constants/theme';
+import { TxRow } from '@/components/tx-row';
 import { useBalances } from '@/hooks/use-balances';
+import { humanizeError } from '@/lib/errors';
+import { useHistory } from '@/store/history';
 import { useTheme } from '@/hooks/use-theme';
 import { formatAmount } from '@/lib/format';
 import { stableTotal } from '@/lib/amount';
@@ -22,6 +25,7 @@ export default function Home() {
   const t = useTheme();
   const { accounts, lock } = useSession();
   const q = useBalances();
+  const history = useHistory(accounts ? { evm: accounts.evm.address, tron: accounts.tron.address } : undefined);
   const qc = useQueryClient();
   const [filter, setFilter] = useState<Filter>('all');
   const rows = useMemo(() => (q.data ?? []).filter((x) => filter === 'all' || x.chain === filter), [q.data, filter]);
@@ -34,7 +38,10 @@ export default function Home() {
         keyExtractor={(x) => `${x.chain}:${x.address}`}
         contentContainerStyle={s.pad}
         refreshControl={
-          <RefreshControl refreshing={q.isRefetching} onRefresh={() => qc.invalidateQueries({ queryKey: ['balances'] })} />
+          <RefreshControl refreshing={q.isRefetching} onRefresh={() => {
+              qc.invalidateQueries({ queryKey: ['balances'] });
+              qc.invalidateQueries({ queryKey: ['history'] });
+            }} />
         }
         ListHeaderComponent={
           <View style={{ gap: Spacing.md }}>
@@ -50,8 +57,14 @@ export default function Home() {
                 <Chip key={f} label={f === 'all' ? 'All' : CHAINS[f].name.replace(' Testnet', '')} active={filter === f} onPress={() => setFilter(f)} />
               ))}
             </ScrollView>
+            {history.pending.length > 0 && (
+              <View testID="pending-list">
+                <T variant="caption">Pending</T>
+                {history.pending.map((tx) => <TxRow key={tx.hash} tx={tx} />)}
+              </View>
+            )}
             {q.isPending && [0, 1, 2, 3].map((i) => <Skeleton key={i} />)}
-            {q.isError && <T variant="error">Couldn&apos;t load balances: {q.error.message}</T>}
+            {q.isError && <T variant="error">Couldn&apos;t load balances: {humanizeError(q.error)}</T>}
           </View>
         }
         renderItem={({ item }) => (
@@ -62,7 +75,7 @@ export default function Home() {
                 <T variant="caption">{CHAINS[item.chain].name}</T>
               </View>
               {item.balance === null ? (
-                <T variant="caption">RPC error</T>
+                <T variant="caption">{item.error ? humanizeError(item.error).split('.')[0] : 'RPC error'}</T>
               ) : (
                 <T>{formatAmount(item.balance, item.decimals, 4)}</T>
               )}
@@ -71,6 +84,8 @@ export default function Home() {
         )}
         ListFooterComponent={
           <View style={{ gap: Spacing.md, marginTop: Spacing.lg }}>
+            <Button variant="secondary" title="Add custom token" onPress={() => router.push('/tokens/add')} />
+            <Button variant="secondary" title={`Activity${history.list.length ? ` (${history.list.length})` : ''}`} onPress={() => router.push('/activity')} />
             <Button variant="secondary" title="WalletConnect sessions" disabled={!isReownConfigured()} onPress={() => router.push('/walletconnect')} />
             {!isReownConfigured() && <T variant="caption">WalletConnect disabled: set EXPO_PUBLIC_REOWN_PROJECT_ID (see .env.example).</T>}
             <Button variant="secondary" title="Lock now" onPress={lock} />

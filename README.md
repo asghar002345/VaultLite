@@ -23,7 +23,8 @@ Node ≥ 22.13 is recommended by Expo SDK 58.
 ```
 index.js                 polyfills → expo-router entry
 src/app/                 routes: (onboarding)/*, lock, (tabs)/home, token/[chain]/[address], receive,
-                         send, send/review, send/status/[hash], walletconnect
+                         send, send/review, send/status/[hash], walletconnect, scan, activity, tokens/add
+src/store/               local tx history + custom tokens (AsyncStorage)
 src/config/tokens.ts     curated testnet tokens (verified addresses only)
 src/services/            evm.ts (viem reads/sends), tron.ts (TronGrid HTTP, local signing)
 src/lib/                 address validation, EIP-1559 fee math, amounts
@@ -51,4 +52,5 @@ docs/BUNDLER_PROXY.md    spec for the Pimlico proxy backend (no key in the app)
 ## Status
 Day 1: scaffold, keys, vault, onboarding/lock/home screens, config, extension-point stubs, tests.
 Day 2: React Query balances (4 EVM testnets + Tron Nile), home/token/receive screens, send flow (EVM native/ERC-20, Tron TRX/TRC-20) with EIP-1559 tiers, hold-to-confirm and biometric/PIN re-auth, WalletConnect (WalletKit init, proposals, sessions), bundler proxy spec.
-WalletConnect and other native modules need a **dev build** (`npx expo run:android` / EAS), not Expo Go.
+Day 3: QR scanner (addresses + WalletConnect), local tx history with pending on Home, Tron bandwidth/energy fee estimate, on-chain-verified custom tokens, EVM speed-up/cancel, readable RPC errors.
+WalletConnect, the camera and other native modules need a **dev build** (`npx expo run:android` / EAS), not Expo Go.
