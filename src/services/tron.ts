@@ -1,9 +1,11 @@
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { base58 } from '@scure/base';
+import { decodeFunctionResult, erc20Abi } from 'viem';
 
 import { CHAINS } from '@/config/chains';
 import { NATIVE, type TokenInfo } from '@/config/tokens';
+import { tronFeeSun, tronTxBandwidth, type TronPrices, type TronResources } from '@/lib/fees';
 
 import type { TxState } from './evm';
 
@@ -108,4 +110,87 @@ export async function tronTxState(txid: string): Promise<TxState> {
   return failed
     ? { state: 'failed', block: BigInt(r.blockNumber), reason: r.receipt?.result ?? r.result }
     : { state: 'success', block: BigInt(r.blockNumber) };
+}
+
+// ---------- fee estimation ----------
+
+let pricesCache: { at: number; v: TronPrices & { activationSun: number } } | null = null;
+
+export async function tronPrices(): Promise<TronPrices & { activationSun: number }> {
+  if (pricesCache && Date.now() - pricesCache.at < 10 * 60_000) return pricesCache.v;
+  const r = await post<{ chainParameter: { key: string; value?: number }[] }>('/wallet/getchainparameters', {});
+  const get = (k: string, d: number) => r.chainParameter.find((x) => x.key === k)?.value ?? d;
+  const v = {
+    sunPerBandwidth: get('getTransactionFee', 1000),
+    sunPerEnergy: get('getEnergyFee', 420),
+    // Creating (activating) a new account via a TRX transfer: system-contract fee + create-account bandwidth fee.
+    activationSun: get('getCreateNewAccountFeeInSystemContract', 1_000_000) + get('getCreateAccountFee', 100_000),
+  };
+  pricesCache = { at: Date.now(), v };
+  return v;
+}
+
+export async function tronResources(addr: string): Promise<TronResources> {
+  const r = await post<{ freeNetLimit?: number; freeNetUsed?: number; NetLimit?: number; NetUsed?: number; EnergyLimit?: number; EnergyUsed?: number }>(
+    '/wallet/getaccountresource',
+    { address: addr, visible: true },
+  );
+  return {
+    bandwidthLeft: Math.max(0, (r.freeNetLimit ?? 0) - (r.freeNetUsed ?? 0)) + Math.max(0, (r.NetLimit ?? 0) - (r.NetUsed ?? 0)),
+    energyLeft: Math.max(0, (r.EnergyLimit ?? 0) - (r.EnergyUsed ?? 0)),
+  };
+}
+
+async function accountExists(addr: string) {
+  const a = await post<{ address?: string }>('/wallet/getaccount', { address: addr, visible: true });
+  return !!a.address;
+}
+
+/** Simulate a TRC-20 transfer to get energy_used (no state change). */
+export async function estimateTrc20Energy(from: string, to: string, token: TokenInfo, amount: bigint): Promise<number> {
+  const r = await post<{ energy_used?: number; result?: { result?: boolean; message?: string } }>('/wallet/triggerconstantcontract', {
+    owner_address: from,
+    contract_address: token.address,
+    function_selector: 'transfer(address,uint256)',
+    parameter: tronAddressToAbiWord(to) + amount.toString(16).padStart(64, '0'),
+    visible: true,
+  });
+  if (r.result && r.result.result === false) throw new Error(r.result.message ?? 'TRC-20 simulation failed');
+  return r.energy_used ?? 0;
+}
+
+export async function estimateTronFee(from: string, to: string, token: TokenInfo, amount: bigint) {
+  const [tx, res, prices, toExists, energy] = await Promise.all([
+    buildTronTransfer(from, to, token, amount),
+    tronResources(from),
+    tronPrices(),
+    token.address === NATIVE ? accountExists(to) : Promise.resolve(true),
+    token.address === NATIVE ? Promise.resolve(0) : estimateTrc20Energy(from, to, token, amount),
+  ]);
+  return {
+    ...tronFeeSun(tronTxBandwidth(tx.raw_data_hex.length), energy, res, prices, toExists ? 0 : prices.activationSun),
+    resources: res,
+    recipientActivated: toExists,
+  };
+}
+
+// ---------- custom token verification ----------
+async function constant(contract: string, selector: string): Promise<`0x${string}` | null> {
+  const r = await post<{ constant_result?: string[]; result?: { result?: boolean } }>('/wallet/triggerconstantcontract', {
+    owner_address: contract,
+    contract_address: contract,
+    function_selector: selector,
+    visible: true,
+  });
+  const h = r.constant_result?.[0];
+  return h && h.length >= 64 ? `0x${h}` : null;
+}
+
+export async function verifyTrc20(address: string): Promise<{ symbol: string; name: string; decimals: number }> {
+  const [d, s, n] = await Promise.all([constant(address, 'decimals()'), constant(address, 'symbol()'), constant(address, 'name()')]);
+  if (!d || !s) throw new Error('Not a TRC-20 token on Nile (decimals()/symbol() missing)');
+  const decimals = Number(decodeFunctionResult({ abi: erc20Abi, functionName: 'decimals', data: d }));
+  const symbol = decodeFunctionResult({ abi: erc20Abi, functionName: 'symbol', data: s });
+  const name = n ? decodeFunctionResult({ abi: erc20Abi, functionName: 'name', data: n }) : symbol;
+  return { symbol, name, decimals };
 }

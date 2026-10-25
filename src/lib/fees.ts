@@ -47,3 +47,53 @@ export const padGas = (estimate: bigint, p = 20n) => (estimate * (100n + p) + 99
 export function canAfford(nativeBalance: bigint, fee: bigint, nativeValue = 0n) {
   return nativeBalance >= fee + nativeValue;
 }
+
+/** Minimum bump most clients (geth/erigon txpool) require to replace a pending tx: +10%. We use +12.5%. */
+export const REPLACEMENT_BUMP_PCT = 1125n; // per-mille
+
+/**
+ * Fees for a replacement (speed-up / cancel) of a pending tx with the same nonce:
+ * each field is max(old × 1.125 rounded up, current market quote).
+ */
+export function bumpFees(
+  old: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint },
+  market?: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint },
+): { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } {
+  const bump = (v: bigint) => (v * REPLACEMENT_BUMP_PCT + 999n) / 1000n;
+  let tip = bump(old.maxPriorityFeePerGas);
+  let max = bump(old.maxFeePerGas);
+  if (market) {
+    if (market.maxPriorityFeePerGas > tip) tip = market.maxPriorityFeePerGas;
+    if (market.maxFeePerGas > max) max = market.maxFeePerGas;
+  }
+  if (max < tip) max = tip;
+  return { maxFeePerGas: max, maxPriorityFeePerGas: tip };
+}
+
+// ---------- Tron resource fees ----------
+
+export interface TronResources {
+  /** Free daily bandwidth left + staked bandwidth left. */
+  bandwidthLeft: number;
+  energyLeft: number;
+}
+export interface TronPrices {
+  /** sun per bandwidth byte (getTransactionFee) */
+  sunPerBandwidth: number;
+  /** sun per energy unit (getEnergyFee) */
+  sunPerEnergy: number;
+}
+
+/** Signed size ≈ raw_data bytes + 65-byte signature + protobuf/result overhead (TronWeb uses ~64+). */
+export const tronTxBandwidth = (rawDataHexLen: number) => rawDataHexLen / 2 + 65 + 69;
+
+/**
+ * TRX burned (in sun). Bandwidth is all-or-nothing: if the account lacks enough
+ * bandwidth for the whole tx it pays the full size in TRX. Energy shortfall is burned.
+ */
+export function tronFeeSun(bandwidth: number, energy: number, res: TronResources, prices: TronPrices, activationSun = 0) {
+  const bwSun = res.bandwidthLeft >= bandwidth ? 0 : Math.ceil(bandwidth) * prices.sunPerBandwidth;
+  const energyShort = Math.max(0, energy - res.energyLeft);
+  const energySun = energyShort * prices.sunPerEnergy;
+  return { bandwidth: Math.ceil(bandwidth), energy, bandwidthSun: bwSun, energySun, activationSun, totalSun: bwSun + energySun + activationSun };
+}
