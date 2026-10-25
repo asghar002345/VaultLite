@@ -1,33 +1,89 @@
-import { Button, Card, Screen, T, TestnetBanner } from '@/components/ui';
-import { CHAIN_LIST } from '@/config/chains';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, router } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { Button, T, TestnetBanner } from '@/components/ui';
+import { Chip, Skeleton } from '@/components/wallet';
+import { CHAINS, type ChainKey } from '@/config/chains';
 import { isReownConfigured } from '@/config/env';
+import { Spacing } from '@/constants/theme';
+import { useBalances } from '@/hooks/use-balances';
+import { useTheme } from '@/hooks/use-theme';
+import { formatAmount } from '@/lib/format';
+import { stableTotal } from '@/lib/amount';
 import { useSession } from '@/vault/session';
 
+type Filter = 'all' | ChainKey;
+const FILTERS: Filter[] = ['all', 'sepolia', 'polygonAmoy', 'bscTestnet', 'baseSepolia', 'tronNile'];
+
 export default function Home() {
+  const t = useTheme();
   const { accounts, lock } = useSession();
+  const q = useBalances();
+  const qc = useQueryClient();
+  const [filter, setFilter] = useState<Filter>('all');
+  const rows = useMemo(() => (q.data ?? []).filter((x) => filter === 'all' || x.chain === filter), [q.data, filter]);
   if (!accounts) return null;
+
   return (
-    <Screen>
-      <TestnetBanner />
-      <T variant="title">Accounts</T>
-      <Card>
-        <T>EVM ({CHAIN_LIST.filter((c) => c.family === 'evm').map((c) => c.name).join(', ')})</T>
-        <T variant="mono" selectable testID="evm-address">{accounts.evm.address}</T>
-        {accounts.evm.path && <T variant="caption">{accounts.evm.path}</T>}
-      </Card>
-      <Card>
-        <T>Tron (Nile testnet)</T>
-        <T variant="mono" selectable testID="tron-address">{accounts.tron.address}</T>
-        {accounts.tron.path && <T variant="caption">{accounts.tron.path}</T>}
-      </Card>
-      <Card>
-        <T>Solana</T>
-        <T variant="caption">{accounts.solana.note}</T>
-      </Card>
-      {!isReownConfigured() && (
-        <T variant="caption">WalletConnect disabled: set EXPO_PUBLIC_REOWN_PROJECT_ID (see .env.example).</T>
-      )}
-      <Button variant="secondary" title="Lock now" onPress={lock} />
-    </Screen>
+    <SafeAreaView style={[s.flex, { backgroundColor: t.background }]}>
+      <FlatList
+        data={q.isPending ? [] : rows}
+        keyExtractor={(x) => `${x.chain}:${x.address}`}
+        contentContainerStyle={s.pad}
+        refreshControl={
+          <RefreshControl refreshing={q.isRefetching} onRefresh={() => qc.invalidateQueries({ queryKey: ['balances'] })} />
+        }
+        ListHeaderComponent={
+          <View style={{ gap: Spacing.md }}>
+            <TestnetBanner />
+            <T variant="caption">Total (test stablecoins at $1; native tokens unpriced)</T>
+            <T variant="hero" testID="total">${stableTotal(q.data ?? []).toFixed(2)}</T>
+            <View style={s.row}>
+              <View style={s.flex}><Button title="Send" onPress={() => router.push('/send')} /></View>
+              <View style={s.flex}><Button variant="secondary" title="Receive" onPress={() => router.push('/receive')} /></View>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>
+              {FILTERS.map((f) => (
+                <Chip key={f} label={f === 'all' ? 'All' : CHAINS[f].name.replace(' Testnet', '')} active={filter === f} onPress={() => setFilter(f)} />
+              ))}
+            </ScrollView>
+            {q.isPending && [0, 1, 2, 3].map((i) => <Skeleton key={i} />)}
+            {q.isError && <T variant="error">Couldn&apos;t load balances: {q.error.message}</T>}
+          </View>
+        }
+        renderItem={({ item }) => (
+          <Link href={{ pathname: '/token/[chain]/[address]', params: { chain: item.chain, address: item.address } }} asChild>
+            <Pressable style={[s.item, { borderColor: t.border }]}>
+              <View style={s.flex}>
+                <T style={{ fontWeight: '600' }}>{item.symbol}</T>
+                <T variant="caption">{CHAINS[item.chain].name}</T>
+              </View>
+              {item.balance === null ? (
+                <T variant="caption">RPC error</T>
+              ) : (
+                <T>{formatAmount(item.balance, item.decimals, 4)}</T>
+              )}
+            </Pressable>
+          </Link>
+        )}
+        ListFooterComponent={
+          <View style={{ gap: Spacing.md, marginTop: Spacing.lg }}>
+            <Button variant="secondary" title="WalletConnect sessions" disabled={!isReownConfigured()} onPress={() => router.push('/walletconnect')} />
+            {!isReownConfigured() && <T variant="caption">WalletConnect disabled: set EXPO_PUBLIC_REOWN_PROJECT_ID (see .env.example).</T>}
+            <Button variant="secondary" title="Lock now" onPress={lock} />
+          </View>
+        }
+      />
+    </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  flex: { flex: 1 },
+  pad: { padding: Spacing.lg, gap: Spacing.sm },
+  row: { flexDirection: 'row', gap: Spacing.sm },
+  item: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
+});
