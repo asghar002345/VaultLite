@@ -65,7 +65,10 @@ describe('deriveAccounts', () => {
     const a = deriveAccounts({ kind: 'mnemonic', mnemonic: ABANDON });
     expect(a.evm.address).toBe('0x9858EfFD232B4033E47d90003D41EC34EcaEda94');
     expect(a.tron.address).toBe('TUEZSdKsoDHQMeZwihtdoBiN46zxhGWYdH');
-    expect(a.solana.address).toBeNull();
+    // Cross-checked with @solana/web3.js Keypair.fromSeed(ed25519-hd-key derivePath(...)).
+    expect(a.solana.address).toBe('HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk');
+    expect(deriveAccounts({ kind: 'mnemonic', mnemonic: ABANDON }, 1).solana.address).toBe('Hh8QwFUA6MtVu1qAoq12ucvFHNwCcVTV7hpWjeY1Hztb');
+    expect(a.solana.path).toBe("m/44'/501'/0'/0'");
   });
   it('private-key secret maps same key to EVM and Tron', () => {
     const pk = '0x' + '0'.repeat(63) + '1';
@@ -73,6 +76,7 @@ describe('deriveAccounts', () => {
     expect(a.evm.address).toBe('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf');
     expect(a.tron.address).toBe('TMVQGm1qAQYVdetCeGRRkTWYYrLXuHK2HC');
     expect(isValidPrivateKey(pk)).toBe(true);
+    expect(a.solana.address).toBeNull();
     expect(isValidPrivateKey('0x' + '0'.repeat(64))).toBe(false);
   });
 });

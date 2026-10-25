@@ -78,6 +78,19 @@ export const CHAINS = {
     faucetUrl: 'https://nileex.io/join/getJoinPage',
     testnet: true,
   },
+  solanaDevnet: {
+    key: 'solanaDevnet',
+    family: 'solana',
+    name: 'Solana Devnet',
+    chainId: null,
+    // CAIP-2 = 'solana:' + first 32 chars of the genesis hash (devnet EtWTRABZaYq6iMfeYKouRu166VU2xqa1…).
+    caip2: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+    nativeCurrency: { name: 'SOL', symbol: 'SOL', decimals: 9 },
+    rpcUrls: ['https://api.devnet.solana.com'],
+    explorerUrl: 'https://explorer.solana.com',
+    faucetUrl: 'https://faucet.solana.com',
+    testnet: true,
+  },
 } as const satisfies Record<string, ChainConfig>;
 
 export type ChainKey = keyof typeof CHAINS;

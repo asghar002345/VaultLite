@@ -31,7 +31,7 @@ export default function TokenDetail() {
         {token.source && <T variant="caption">Address source: {token.source}</T>}
         {token.custom && <T variant="caption">Custom token (verified on-chain when imported)</T>}
       </Card>
-      <Button title={`Send ${token.symbol}`} onPress={() => router.push({ pathname: '/send', params: { chain: token.chain, token: token.address } })} />
+      {c.family !== 'solana' && <Button title={`Send ${token.symbol}`} onPress={() => router.push({ pathname: '/send', params: { chain: token.chain, token: token.address } })} />}
       <Button variant="secondary" title="Receive" onPress={() => router.push({ pathname: '/receive', params: { chain: token.chain } })} />
       {explorer && <Button variant="secondary" title="View on explorer" onPress={() => WebBrowser.openBrowserAsync(explorer)} />}
       {token.custom && <Button variant="danger" title="Remove token" onPress={() => remove(token).then(() => router.back())} />}

@@ -161,4 +161,5 @@ export async function evmTxState(k: EvmChainKey, hash: `0x${string}`, from?: `0x
 }
 
 export const explorerTxUrl = (k: ChainKey, hash: string) =>
+  k === 'solanaDevnet' ? `${CHAINS[k].explorerUrl}/tx/${hash}?cluster=devnet` :
   k === 'tronNile' ? `${CHAINS[k].explorerUrl}/#/transaction/${hash.replace(/^0x/, '')}` : `${CHAINS[k].explorerUrl}/tx/${hash}`;

@@ -34,6 +34,7 @@ export const TOKENS: TokenInfo[] = [
   { chain: 'baseSepolia', address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', symbol: 'USDC', name: 'USD Coin (test)', decimals: 6, stable: true, source: CIRCLE },
   { chain: 'tronNile', address: NATIVE, symbol: 'TRX', name: 'Tron (Nile)', decimals: 6 },
   { chain: 'tronNile', address: 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf', symbol: 'USDT', name: 'Tether USD (Nile test)', decimals: 6, stable: true, source: NILE_FAUCET },
+  { chain: 'solanaDevnet', address: NATIVE, symbol: 'SOL', name: 'Solana (Devnet)', decimals: 9 },
 ];
 
 export const findToken = (chain: string, address: string) =>

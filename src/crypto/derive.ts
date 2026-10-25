@@ -4,12 +4,13 @@ import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { slip10Ed25519, solanaAddressFromSeedKey } from './solana';
 import { tronAddressFromPrivateKey } from './tron';
 
 export const PATHS = {
   evm: (i = 0) => `m/44'/60'/0'/0/${i}`,
   tron: (i = 0) => `m/44'/195'/0'/0/${i}`,
-  /** Solana uses SLIP-0010 ed25519, hardened-only: m/44'/501'/i'/0'. Not implemented yet. */
+  /** Solana uses SLIP-0010 ed25519, hardened-only: m/44'/501'/i'/0' (see crypto/solana.ts). */
   solana: (i = 0) => `m/44'/501'/${i}'/0'`,
 } as const;
 
@@ -59,9 +60,11 @@ export function evmAddressFromPrivateKey(pk: `0x${string}`): `0x${string}` {
 }
 
 export function deriveAccounts(secret: WalletSecret, index = 0): DerivedAccounts {
-  const solana = { address: null, path: PATHS.solana(index), note: 'Solana derivation not implemented yet (stub).' };
+  const solana = { address: null as string | null, path: PATHS.solana(index) as string | null, note: 'Not available for private-key imports (Solana uses ed25519).' };
   if (secret.kind === 'mnemonic') {
     const seed = mnemonicToSeedSync(normalizeMnemonic(secret.mnemonic));
+    solana.address = solanaAddressFromSeedKey(slip10Ed25519(seed, PATHS.solana(index)));
+    solana.note = 'Solana Devnet (SLIP-0010 ed25519). Receive + balance only.';
     const evmKey = keyAt(seed, PATHS.evm(index));
     const tronKey = keyAt(seed, PATHS.tron(index));
     return {
@@ -75,7 +78,7 @@ export function deriveAccounts(secret: WalletSecret, index = 0): DerivedAccounts
   return {
     evm: { address: evmAddressFromPrivateKey(pk), path: null },
     tron: { address: tronAddressFromPrivateKey(hexToBytes(pk.slice(2))), path: null },
-    solana: { ...solana, path: null, note: 'Not available for private-key imports.' },
+    solana: { ...solana, path: null },
   };
 }
 

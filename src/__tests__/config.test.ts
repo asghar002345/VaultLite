@@ -4,7 +4,7 @@ import { buildQuiz } from '@/crypto/quiz';
 
 it('chain registry is testnet-only with expected ids', () => {
   expect(CHAIN_LIST.every((c) => c.testnet)).toBe(true);
-  expect(CHAIN_LIST.map((c) => c.chainId)).toEqual([11155111, 80002, 97, 84532, null]);
+  expect(CHAIN_LIST.map((c) => c.chainId)).toEqual([11155111, 80002, 97, 84532, null, null]);
 });
 
 it('reown id falls back env → extra → placeholder', () => {
