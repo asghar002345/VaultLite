@@ -1,0 +1,16 @@
+# Maestro E2E: create-wallet path up to the backup quiz (the quiz positions are random,
+# so this flow stops at the verify screen; full create is covered by unit tests of buildQuiz).
+appId: com.vaultlite.demo
+---
+- clearState
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "create"
+    timeout: 15000
+- tapOn:
+    id: "create"
+- assertVisible: "Your recovery phrase"
+- tapOn: "Tap to reveal"
+- tapOn: "I wrote it down"
+- assertVisible: "Verify your backup"

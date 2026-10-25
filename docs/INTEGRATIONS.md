@@ -78,6 +78,17 @@ EVM: viem `estimateGas` (+20 %), EIP-1559 tiers in `src/lib/fees.ts`. Tron: Tron
 - **Incoming transfers** — `src/services/incoming.ts`, keyless only: Blockscout REST v2 for Sepolia and Base Sepolia, TronGrid v1 for Nile. Polygon Amoy and BSC Testnet are skipped (their explorers need API keys). Merged with local sends in `/activity`. Not filtered for spam tokens.
 - **EIP-681 token transfer QR** — `ethereum:<token>@<chainId>/transfer?address=<to>&uint256=<amount>` (decimal, scientific or hex amounts). Picks the token if it's known/custom, otherwise asks you to import it first.
 
+## Day 6 additions
+- **Solana Devnet** — `src/crypto/solana.ts`: SLIP-0010 ed25519 (`m/44'/501'/i'/0'`, matches Phantom/`@solana/web3.js` + `ed25519-hd-key`; SLIP-0010 vector 1 tested). Address + `getBalance` via `https://api.devnet.solana.com`. Receive + balance only (no send, not in WalletConnect namespaces). Not available for raw private-key imports.
+- **Signing sheet fee preview** — `previewEvmTxFee` (dApp gas or estimate +20 %, dApp fees or market EIP-1559), refreshed every 15 s.
+- **dApp txs in history** — `src/walletconnect/history.ts` decodes ERC-20 `transfer` into token amounts; `approve`/`transferFrom`/unknown calls become labelled `contract` entries with the dApp name.
+- **Spam filtering** — `src/lib/spam.ts`: hides zero-value transfers, URL/bait/non-ASCII symbols, curated-symbol impersonation, and address-poisoning senders; unknown tokens are tagged "unverified". Toggle in Activity.
+- **WC de-dup** — `src/walletconnect/dedupe.ts`: per-topic request ids + identical payloads within 5 s.
+- **UX** — Reanimated spring press-scale on buttons/chips, `FadeInDown` token rows, `expo-haptics` (press, selection, hold-complete, copy, approve), accessibility labels/roles/states, hold-to-confirm exposes an `activate` accessibility action.
+- **Screen capture** — `expo-screen-capture` (`useSecureScreen`) on create/verify/import/security/lock, send review and the signing sheet.
+- **E2E** — `.maestro/onboarding-import.yaml` (import → PIN → home → receive → lock/unlock) and `.maestro/onboarding-create.yaml` (to the quiz). appId `com.vaultlite.demo`.
+- **CI** — `.github/workflows/ci.yml` (Node 22, `npm ci`, typecheck, lint, jest). **EAS** — `eas.json` `development` (dev client, internal APK / iOS simulator) and `preview` (internal APK). Set `EXPO_PUBLIC_REOWN_PROJECT_ID` as an EAS environment variable, not in git.
+
 ## WalletConnect — `src/walletconnect/`
 Polyfills: `index.js` → `src/polyfills.ts`, with `@walletconnect/react-native-compat` first. Packages: `@reown/walletkit`, `@walletconnect/core`, `@walletconnect/utils`, peers `@react-native-async-storage/async-storage`, `@react-native-community/netinfo`, `expo-application`. Needs a dev build (native modules — not Expo Go).
 `walletkit.ts` inits WalletKit with `env.REOWN_PROJECT_ID`, handles `session_proposal` (approve with testnet-only `supportedNamespaces`, reject), lists/disconnects sessions, and routes `session_request` through `analyzeRequest` → signing sheet (see Day 4–5). Tron Nile CAIP-2 `tron:0xcd8690dc` verified (Reown Tron RPC docs + Nile genesis blockID suffix).
