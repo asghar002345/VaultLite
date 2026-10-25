@@ -55,3 +55,22 @@ export async function executeRequest(a: Exclude<Analysis, { kind: 'error' }>, ke
     }
   }
 }
+
+/** Fee preview for a dApp tx: gas (given or estimated, +20%) × market/declared EIP-1559 fees. */
+export async function previewEvmTxFee(a: Extract<Analysis, { kind: 'send_tx' }>) {
+  const key = Object.entries(VIEM_CHAINS).find(([, c]) => c.id === a.chain.chainId)?.[0];
+  if (!key || !isEvmChain(key)) throw new Error('Unsupported chain');
+  const c = publicClient(key);
+  const t = a.tx;
+  const call = { to: t.to as `0x${string}`, value: big(t.value) ?? 0n, data: t.data };
+  const [gas, block, market] = await Promise.all([
+    big(t.gas ?? t.gasLimit) ?? c.estimateGas({ account: t.from as `0x${string}`, ...call }).then(padGas),
+    c.getBlock({ blockTag: 'latest' }),
+    marketFee(key),
+  ]);
+  const maxFee = big(t.maxFeePerGas) ?? market.maxFeePerGas;
+  const tip = big(t.maxPriorityFeePerGas) ?? market.maxPriorityFeePerGas;
+  const base = block.baseFeePerGas ?? 0n;
+  const eff = base + tip < maxFee ? base + tip : maxFee;
+  return { gas, maxCost: gas * maxFee, expectedCost: gas * eff, dappSetFees: !!t.maxFeePerGas };
+}

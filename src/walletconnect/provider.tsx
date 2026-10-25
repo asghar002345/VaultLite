@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, View } from 'react-native';
 
 import { Button, Card, T } from '@/components/ui';
@@ -6,6 +6,7 @@ import { CHAIN_LIST } from '@/config/chains';
 import { isReownConfigured } from '@/config/env';
 import { useSession } from '@/vault/session';
 
+import { createRequestDeduper } from './dedupe';
 import { analyzeRequest, verifyRisks } from './requests';
 import { SigningSheet, type PendingRequest } from './signing-sheet';
 import {
@@ -28,6 +29,7 @@ export function WalletConnectHost() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [queue, setQueue] = useState<PendingRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const dedupe = useRef(createRequestDeduper());
 
   useEffect(() => {
     if (!isReownConfigured() || !accounts) return;
@@ -36,6 +38,8 @@ export function WalletConnectHost() {
       const kit = await getWalletKit();
       const session = kit.getActiveSessions()[r.topic];
       const { method, params } = r.params.request;
+      // Ignore redelivered ids and identical payloads fired twice within 5 s (no response: the first one answers).
+      if (dedupe.current({ id: r.id, topic: r.topic, method, params, chainId: r.params.chainId })) return;
       const a = analyzeRequest({
         method,
         params,
@@ -59,7 +63,7 @@ export function WalletConnectHost() {
   if (queue[0]) return <SigningSheet key={queue[0].request.id} item={queue[0]} onClose={() => setQueue((q) => q.slice(1))} />;
   if (!proposal || !accounts) return null;
   const meta = proposal.params.proposer.metadata;
-  const bad = unsupportedChains(proposal.params, CHAIN_LIST.map((c) => c.caip2));
+  const bad = unsupportedChains(proposal.params, CHAIN_LIST.filter((c) => c.family !== 'solana').map((c) => c.caip2));
   const risks = verifyRisks(proposal.verifyContext?.verified);
   const close = () => {
     setProposal(null);

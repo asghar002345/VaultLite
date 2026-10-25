@@ -1,7 +1,7 @@
 import type { ChainKey } from '@/config/chains';
 
 export type TxStatus = 'pending' | 'success' | 'failed' | 'replaced';
-export type TxKind = 'send' | 'speedup' | 'cancel';
+export type TxKind = 'send' | 'speedup' | 'cancel' | 'contract';
 
 export interface TxRecord {
   hash: string;
@@ -18,6 +18,10 @@ export interface TxRecord {
   createdAt: number;
   block?: string;
   error?: string;
+  /** Human summary for contract calls (e.g. "Approve 5 USDC"). */
+  label?: string;
+  /** dApp name for WalletConnect-originated txs. */
+  dapp?: string;
   // EVM replacement metadata
   nonce?: number;
   gasLimit?: string;
