@@ -22,13 +22,19 @@ Node ≥ 22.13 is recommended by Expo SDK 58.
 ## Architecture
 ```
 index.js                 polyfills → expo-router entry
-src/app/                 routes: (onboarding)/welcome|create|verify|import|security, lock, (tabs)/home
+src/app/                 routes: (onboarding)/*, lock, (tabs)/home, token/[chain]/[address], receive,
+                         send, send/review, send/status/[hash], walletconnect
+src/config/tokens.ts     curated testnet tokens (verified addresses only)
+src/services/            evm.ts (viem reads/sends), tron.ts (TronGrid HTTP, local signing)
+src/lib/                 address validation, EIP-1559 fee math, amounts
+src/walletconnect/       WalletKit init, proposal handler, sessions
 src/crypto/              BIP-39/32 derivation (EVM, Tron; Solana stub), backup quiz
 src/vault/               encrypted vault (SecureStore), PIN + biometrics, in-memory session, auto-lock
 src/config/              env.ts (Reown id), chains.ts (testnet registry)
 src/modules/escrow/      MilestoneEscrow ABI + EscrowService interface/stub
 src/modules/smartAccount ERC-4337 SmartAccountProvider interface/stub
 docs/INTEGRATIONS.md     where ABIs, addresses, bundler/paymaster URLs plug in
+docs/BUNDLER_PROXY.md    spec for the Pimlico proxy backend (no key in the app)
 ```
 
 ### Keys
@@ -44,3 +50,5 @@ docs/INTEGRATIONS.md     where ABIs, addresses, bundler/paymaster URLs plug in
 
 ## Status
 Day 1: scaffold, keys, vault, onboarding/lock/home screens, config, extension-point stubs, tests.
+Day 2: React Query balances (4 EVM testnets + Tron Nile), home/token/receive screens, send flow (EVM native/ERC-20, Tron TRX/TRC-20) with EIP-1559 tiers, hold-to-confirm and biometric/PIN re-auth, WalletConnect (WalletKit init, proposals, sessions), bundler proxy spec.
+WalletConnect and other native modules need a **dev build** (`npx expo run:android` / EAS), not Expo Go.

@@ -7,9 +7,9 @@ VaultLite is **testnet-only**. Every chain lives in `src/config/chains.ts`; do n
 |---|---|---|
 | `EXPO_PUBLIC_REOWN_PROJECT_ID` | `src/config/env.ts` | WalletConnect/Reown. Fallback: `app.json > expo.extra.reownProjectId`, else `REPLACE_ME`. |
 | `EXPO_PUBLIC_ESCROW_ADDRESS_BASE_SEPOLIA` | `src/modules/escrow/deployments.ts` | MilestoneEscrow address, overrides the in-code placeholder. |
-| `EXPO_PUBLIC_PIMLICO_URL_BASE_SEPOLIA` | `src/modules/smartAccount/config.ts` | Pimlico bundler + paymaster RPC. |
+| `EXPO_PUBLIC_BUNDLER_PROXY_URL` | `src/modules/smartAccount/config.ts` | Base URL of our bundler/paymaster proxy (`/api/bundler/:chainId`). See `docs/BUNDLER_PROXY.md`. |
 
-⚠️ `EXPO_PUBLIC_*` values are inlined into the JS bundle. That is fine for a Reown project id (public by design), but a Pimlico **API key** shipped in the app is extractable. For anything beyond a demo, proxy bundler/paymaster calls through a backend or use a restricted/sponsorship-policy key.
+⚠️ `EXPO_PUBLIC_*` values are inlined into the JS bundle. That is fine for a Reown project id (public by design) and the proxy URL. The Pimlico API key lives **only** on the proxy server (`PIMLICO_API_KEY`) — see `docs/BUNDLER_PROXY.md`.
 
 ## Escrow — `src/modules/escrow/`
 Contract: **MilestoneEscrow** (source/spec in the teammate's `milestone-escrow` repo, `SPEC.md`). Target chain: **Base Sepolia (84532)**.
@@ -43,11 +43,25 @@ Plan: **EntryPoint v0.7** (`0x0000000071727De22E5E9d8BAf0edAc6f37da032`), single
 | What | Where |
 |---|---|
 | Factory address / ABI | `config.ts` → `SMART_ACCOUNT_CONFIG.baseSepolia.factory` (`null`), `factoryAbi`, `accountAbi` |
-| Bundler / paymaster URL | same entry, from env (`https://api.pimlico.io/v2/84532/rpc?apikey=…`) |
+| Bundler / paymaster URL | same entry, `bundlerProxyUrl(84532)` → `${EXPO_PUBLIC_BUNDLER_PROXY_URL}/api/bundler/84532` (proxy forwards to Pimlico) |
 | Interface | `types.ts` → `SmartAccountProvider` (`getAddress`, `isDeployed`, `buildUserOperation`, `sendUserOperation`, `waitForReceipt`) |
 | Stub | `SmartAccountProvider.stub.ts` |
 
 Suggested implementation: viem `account-abstraction` (`createBundlerClient`, `toSmartAccount`) or `permissionless` with a custom account matching the teammate's factory; `getAddress` via factory `getAddress(owner, salt)` / `getSenderAddress`; `factory`/`factoryData` only when `!isDeployed()`; paymaster via `pm_sponsorUserOperation` / ERC-7677 `pm_getPaymasterStubData`+`pm_getPaymasterData`. The escrow uses `msg.sender` only and ERC-1271 for signed approvals, so the smart account works as client/provider directly (see SPEC §10).
 
-## WalletConnect (Day 2+)
-Polyfills are loaded first in `index.js` → `src/polyfills.ts` (`react-native-get-random-values`, then `fast-text-encoding`). Add `@walletconnect/react-native-compat` there before other WC imports.
+## Balances & tokens — `src/config/tokens.ts`, `src/services/{evm,tron}.ts`
+Curated list; only addresses verified from official sources (2026-10-25):
+| Chain | Token | Address | Source |
+|---|---|---|---|
+| Sepolia | USDC | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` | Circle docs |
+| Polygon Amoy | USDC | `0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582` | Circle docs |
+| Base Sepolia | USDC | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | Circle docs |
+| Tron Nile | USDT (TRC-20) | `TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf` | Nile faucet (nileex.io) |
+Skipped: BSC Testnet USDC (not listed by Circle), USDT on EVM testnets (no official Tether deployment). EVM reads via viem (fallback transports); Tron via TronGrid HTTP (`/wallet/getaccount`, `/wallet/triggerconstantcontract`).
+
+## Send
+EVM: viem `estimateGas` (+20 %), EIP-1559 tiers in `src/lib/fees.ts`. Tron: TronGrid `createtransaction` / `triggersmartcontract` (fee_limit 100 TRX) → local secp256k1 signature over `txID` → `broadcasttransaction`; status via `gettransactioninfobyid`.
+
+## WalletConnect — `src/walletconnect/`
+Polyfills: `index.js` → `src/polyfills.ts`, with `@walletconnect/react-native-compat` first. Packages: `@reown/walletkit`, `@walletconnect/core`, `@walletconnect/utils`, peers `@react-native-async-storage/async-storage`, `@react-native-community/netinfo`, `expo-application`. Needs a dev build (native modules — not Expo Go).
+`walletkit.ts` inits WalletKit with `env.REOWN_PROJECT_ID`, handles `session_proposal` (approve with testnet-only `supportedNamespaces`, reject), lists/disconnects sessions, and forwards `session_request` to listeners (currently auto-rejected with code 4001 until the Day 4–5 signing UI). Tron Nile CAIP-2 `tron:0xcd8690dc` verified (Reown Tron RPC docs + Nile genesis blockID suffix).

@@ -22,3 +22,11 @@ it('backup quiz asks distinct positions with the answer among 4 options', () => 
     expect(x.options).toContain(words[x.index]);
   });
 });
+
+it('smart account points at the bundler proxy, never a Pimlico URL', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { bundlerProxyUrl } = require('@/modules/smartAccount/config');
+  expect(bundlerProxyUrl(84532, 'https://api.example.com/')).toBe('https://api.example.com/api/bundler/84532');
+  expect(bundlerProxyUrl(84532, '')).toBeNull();
+  expect(bundlerProxyUrl(84532, undefined)).toBeNull();
+});
