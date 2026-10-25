@@ -17,7 +17,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
@@ -44,7 +44,8 @@
         {
           "faceIDPermission": "Allow VaultLite to use Face ID to unlock your wallet."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
