@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, T, TestnetBanner } from '@/components/ui';
@@ -19,7 +20,7 @@ import { stableTotal } from '@/lib/amount';
 import { useSession } from '@/vault/session';
 
 type Filter = 'all' | ChainKey;
-const FILTERS: Filter[] = ['all', 'sepolia', 'polygonAmoy', 'bscTestnet', 'baseSepolia', 'tronNile'];
+const FILTERS: Filter[] = ['all', 'sepolia', 'polygonAmoy', 'bscTestnet', 'baseSepolia', 'tronNile', 'solanaDevnet'];
 
 export default function Home() {
   const t = useTheme();
@@ -47,7 +48,7 @@ export default function Home() {
           <View style={{ gap: Spacing.md }}>
             <TestnetBanner />
             <T variant="caption">Total (test stablecoins at $1; native tokens unpriced)</T>
-            <T variant="hero" testID="total">${stableTotal(q.data ?? []).toFixed(2)}</T>
+            <T variant="hero" testID="total" accessibilityLabel={`Total ${stableTotal(q.data ?? []).toFixed(2)} test dollars`}>${stableTotal(q.data ?? []).toFixed(2)}</T>
             <View style={s.row}>
               <View style={s.flex}><Button title="Send" onPress={() => router.push('/send')} /></View>
               <View style={s.flex}><Button variant="secondary" title="Receive" onPress={() => router.push('/receive')} /></View>
@@ -67,9 +68,14 @@ export default function Home() {
             {q.isError && <T variant="error">Couldn&apos;t load balances: {humanizeError(q.error)}</T>}
           </View>
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
+          <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).springify()}>
           <Link href={{ pathname: '/token/[chain]/[address]', params: { chain: item.chain, address: item.address } }} asChild>
-            <Pressable style={[s.item, { borderColor: t.border }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${item.symbol} on ${CHAINS[item.chain].name}: ${item.balance === null ? 'balance unavailable' : formatAmount(item.balance, item.decimals, 4)}`}
+              accessibilityHint="Opens token details"
+              style={[s.item, { borderColor: t.border }]}>
               <View style={s.flex}>
                 <T style={{ fontWeight: '600' }}>{item.symbol}</T>
                 <T variant="caption">{CHAINS[item.chain].name}</T>
@@ -81,6 +87,7 @@ export default function Home() {
               )}
             </Pressable>
           </Link>
+          </Animated.View>
         )}
         ListFooterComponent={
           <View style={{ gap: Spacing.md, marginTop: Spacing.lg }}>

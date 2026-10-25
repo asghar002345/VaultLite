@@ -9,6 +9,7 @@ import { CHAINS, type ChainKey } from '@/config/chains';
 import { NATIVE } from '@/config/tokens';
 import { useBalances } from '@/hooks/use-balances';
 import { useReauth } from '@/hooks/use-reauth';
+import { useSecureScreen } from '@/hooks/use-secure-screen';
 import { humanizeError } from '@/lib/errors';
 import { canAfford, expectedFeeCost, maxFeeCost, type FeeTier } from '@/lib/fees';
 import { formatAmount } from '@/lib/format';
@@ -22,6 +23,7 @@ import { useSession } from '@/vault/session';
 const nowMs = () => Date.now();
 
 export default function Review() {
+  useSecureScreen('send-review');
   const p = useLocalSearchParams<{ chain: string; token: string; to: string; amount: string }>();
   const { tokens } = useAllTokens();
   const token = findIn(tokens, p.chain, p.token);

@@ -15,7 +15,9 @@ import { findIn, useAllTokens } from '@/store/custom-tokens';
 
 export default function Send() {
   const p = useLocalSearchParams<{ chain?: string; token?: string }>();
-  const { tokens: TOKENS } = useAllTokens();
+  const { tokens: ALL } = useAllTokens();
+  // Solana is receive/balance-only for now.
+  const TOKENS = useMemo(() => ALL.filter((t) => CHAINS[t.chain].family !== 'solana'), [ALL]);
   const initial = (p.chain && p.token && findIn(TOKENS, p.chain, p.token)) || TOKENS[0];
   const [tokenKey, setTokenKey] = useState(`${initial.chain}:${initial.address}`);
   const token = TOKENS.find((t) => `${t.chain}:${t.address}` === tokenKey) ?? TOKENS[0];

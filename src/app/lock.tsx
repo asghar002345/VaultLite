@@ -5,8 +5,10 @@ import { Button, Input, Screen, T } from '@/components/ui';
 import { vault } from '@/vault';
 import { biometricsAvailable } from '@/vault/biometrics';
 import { useSession } from '@/vault/session';
+import { useSecureScreen } from '@/hooks/use-secure-screen';
 
 export default function Lock() {
+  useSecureScreen('lock');
   const { unlockWithPin, unlockWithBiometrics, reset } = useSession();
   const [pin, setPin] = useState('');
   const [bio, setBio] = useState(false);
@@ -44,9 +46,9 @@ export default function Lock() {
   return (
     <Screen>
       <T variant="hero">Locked</T>
-      <Input placeholder="Enter PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={pin} onChangeText={setPin} onSubmitEditing={submit} />
+      <Input testID="lock-pin" placeholder="Enter PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={pin} onChangeText={setPin} onSubmitEditing={submit} />
       {error && <T variant="error">{error}</T>}
-      <Button title={busy ? 'Unlocking…' : 'Unlock'} disabled={busy || pin.length !== 6} onPress={submit} />
+      <Button testID="unlock" title={busy ? 'Unlocking…' : 'Unlock'} disabled={busy || pin.length !== 6} onPress={submit} />
       {bio && <Button variant="secondary" title="Use biometrics" onPress={tryBio} />}
       <Button
         variant="danger"

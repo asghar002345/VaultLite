@@ -11,10 +11,12 @@ import {
   normalizePrivateKey,
 } from '@/crypto/derive';
 import { useSession } from '@/vault/session';
+import { useSecureScreen } from '@/hooks/use-secure-screen';
 
 type Mode = 'mnemonic' | 'privateKey';
 
 export default function Import() {
+  useSecureScreen('import');
   const { setPending } = useSession();
   const [mode, setMode] = useState<Mode>('mnemonic');
   const [value, setValue] = useState('');
@@ -50,6 +52,8 @@ export default function Import() {
         ))}
       </View>
       <Input
+        testID="import-secret"
+        accessibilityLabel={mode === 'mnemonic' ? 'Recovery phrase' : 'Private key'}
         multiline={mode === 'mnemonic'}
         secureTextEntry={mode === 'privateKey'}
         placeholder={mode === 'mnemonic' ? '12 or 24 words separated by spaces' : '0x…'}
@@ -61,7 +65,7 @@ export default function Import() {
         style={mode === 'mnemonic' ? styles.area : undefined}
       />
       {error && <T variant="error">{error}</T>}
-      <Button title="Continue" disabled={!value.trim()} onPress={submit} />
+      <Button testID="import-continue" title="Continue" disabled={!value.trim()} onPress={submit} />
     </Screen>
   );
 }

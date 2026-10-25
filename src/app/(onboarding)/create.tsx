@@ -6,8 +6,10 @@ import { Button, Card, Screen, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { newMnemonic } from '@/crypto/derive';
 import { useSession } from '@/vault/session';
+import { useSecureScreen } from '@/hooks/use-secure-screen';
 
 export default function Create() {
+  useSecureScreen('create');
   const { setPending } = useSession();
   const [mnemonic] = useState(() => newMnemonic(128));
   const [revealed, setRevealed] = useState(false);

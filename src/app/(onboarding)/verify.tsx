@@ -6,8 +6,10 @@ import { Button, Card, Screen, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { buildQuiz } from '@/crypto/quiz';
 import { useSession } from '@/vault/session';
+import { useSecureScreen } from '@/hooks/use-secure-screen';
 
 export default function Verify() {
+  useSecureScreen('verify');
   const { pending } = useSession();
   const mnemonic = pending?.kind === 'mnemonic' ? pending.mnemonic : null;
   const quiz = useMemo(() => (mnemonic ? buildQuiz(mnemonic.split(' ')) : []), [mnemonic]);

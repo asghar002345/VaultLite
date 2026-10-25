@@ -6,8 +6,10 @@ import { Button, Input, Screen, T } from '@/components/ui';
 import { biometricsAvailable } from '@/vault/biometrics';
 import { isValidPin } from '@/vault/vault';
 import { useSession } from '@/vault/session';
+import { useSecureScreen } from '@/hooks/use-secure-screen';
 
 export default function Security() {
+  useSecureScreen('security');
   const { pending, createVault } = useSession();
   const [pin, setPin] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -41,14 +43,14 @@ export default function Security() {
     <Screen>
       <T variant="title">Secure your wallet</T>
       <T variant="caption">Your PIN encrypts the recovery secret on this device. It cannot be recovered.</T>
-      <Input placeholder="6-digit PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={pin} onChangeText={setPin} />
-      <Input placeholder="Confirm PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={confirm} onChangeText={setConfirm} />
+      <Input testID="pin" placeholder="6-digit PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={pin} onChangeText={setPin} />
+      <Input testID="pin-confirm" placeholder="Confirm PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={confirm} onChangeText={setConfirm} />
       <View style={styles.row}>
         <T>Unlock with biometrics{bioAvail ? '' : ' (unavailable)'}</T>
-        <Switch value={bio} onValueChange={setBio} disabled={!bioAvail} />
+        <Switch accessibilityLabel="Unlock with biometrics" testID="bio-switch" value={bio} onValueChange={setBio} disabled={!bioAvail} />
       </View>
       {error && <T variant="error">{error}</T>}
-      <Button title={busy ? 'Encrypting…' : 'Create vault'} disabled={busy} onPress={save} />
+      <Button testID="create-vault" title={busy ? 'Encrypting…' : 'Create vault'} disabled={busy} onPress={save} />
     </Screen>
   );
 }
