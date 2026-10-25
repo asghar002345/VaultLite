@@ -1,6 +1,8 @@
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Button, Card, Input, Screen, T, TestnetBanner } from '@/components/ui';
+import { humanizeError } from '@/lib/errors';
 import { disconnect, getWalletKit, listSessions, pair, subscribe } from '@/walletconnect/walletkit';
 
 type Session = Awaited<ReturnType<typeof listSessions>>[number];
@@ -12,14 +14,15 @@ export default function WalletConnectScreen() {
   const refresh = useCallback(() => void listSessions().then(setSessions), []);
 
   useEffect(() => {
-    getWalletKit().then(refresh).catch((e) => setMsg(e.message));
+    getWalletKit().then(refresh).catch((e) => setMsg(humanizeError(e)));
     return subscribe({ onSessionsChanged: refresh });
   }, [refresh]);
 
   return (
     <Screen>
       <TestnetBanner />
-      <T variant="caption">Paste a wc: URI from a dApp (QR scanning lands later).</T>
+      <Button title="Scan QR code" onPress={() => router.push({ pathname: '/scan', params: { mode: 'wc' } })} />
+      <T variant="caption">…or paste a wc: URI from a dApp</T>
       <Input testID="wc-uri" value={uri} onChangeText={setUri} placeholder="wc:…" />
       <Button
         title="Connect"
@@ -30,7 +33,7 @@ export default function WalletConnectScreen() {
               setUri('');
               setMsg('Waiting for proposal…');
             })
-            .catch((e) => setMsg(e.message))
+            .catch((e) => setMsg(humanizeError(e)))
         }
       />
       {msg && <T variant="caption">{msg}</T>}
@@ -41,7 +44,7 @@ export default function WalletConnectScreen() {
           <T style={{ fontWeight: '600' }}>{s.peer.metadata.name}</T>
           <T variant="caption">{s.peer.metadata.url}</T>
           <T variant="caption">{Object.values(s.namespaces).flatMap((n) => n.chains ?? []).join(', ')}</T>
-          <Button variant="danger" title="Disconnect" onPress={() => disconnect(s.topic).catch((e) => setMsg(e.message))} />
+          <Button variant="danger" title="Disconnect" onPress={() => disconnect(s.topic).catch((e) => setMsg(humanizeError(e)))} />
         </Card>
       ))}
     </Screen>
