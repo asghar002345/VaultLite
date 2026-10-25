@@ -4,7 +4,8 @@ import { validateAddress } from './address';
 
 export type ScanResult =
   | { kind: 'wc'; uri: string }
-  | { kind: 'address'; family: 'evm' | 'tron'; address: string; chainId?: number; chainKey?: string; amount?: string }
+  /** amount: base units of the native coin, or of `tokenAddress` when set (EIP-681 transfer). */
+  | { kind: 'address'; family: 'evm' | 'tron'; address: string; chainId?: number; chainKey?: string; amount?: string; tokenAddress?: string }
   | { kind: 'unknown'; reason: string };
 
 /**
@@ -24,7 +25,7 @@ export function parseScan(raw: string): ScanResult {
   const eth = /^ethereum:(?:pay-)?(0x[0-9a-fA-F]{40})(?:@(\d+))?(\/[a-zA-Z]+)?(?:\?(.*))?$/.exec(data);
   if (eth) {
     const [, addr, chainIdStr, fn, query] = eth;
-    if (fn) return { kind: 'unknown', reason: 'Payment-request functions (e.g. /transfer) are not supported yet' };
+    if (fn && fn !== '/transfer') return { kind: 'unknown', reason: `Unsupported payment function ${fn.slice(1)}` };
     const v = validateAddress('evm', addr);
     if (!v.ok) return { kind: 'unknown', reason: v.reason };
     let chainKey: string | undefined;
@@ -35,7 +36,17 @@ export function parseScan(raw: string): ScanResult {
       if (!c) return { kind: 'unknown', reason: `Chain ${chainId} is not a supported testnet` };
       chainKey = c.key;
     }
-    const value = query ? new URLSearchParams(query).get('value') ?? undefined : undefined;
+    const qs = new URLSearchParams(query ?? '');
+    if (fn === '/transfer') {
+      // ERC-20 transfer: ethereum:<token>@<chainId>/transfer?address=<to>&uint256=<amount>
+      const to = validateAddress('evm', qs.get('address') ?? '');
+      if (!to.ok) return { kind: 'unknown', reason: `Transfer recipient: ${to.reason}` };
+      const amt = parseEip681Number(qs.get('uint256'));
+      if (amt === 'invalid') return { kind: 'unknown', reason: 'Invalid uint256 amount' };
+      return { kind: 'address', family: 'evm', address: to.normalized, chainId, chainKey, tokenAddress: v.normalized, amount: amt };
+    }
+    const value = parseEip681Number(qs.get('value'));
+    if (value === 'invalid') return { kind: 'unknown', reason: 'Invalid value' };
     return { kind: 'address', family: 'evm', address: v.normalized, chainId, chainKey, amount: value };
   }
 
@@ -51,4 +62,16 @@ export function parseScan(raw: string): ScanResult {
     return v.ok ? { kind: 'address', family: 'evm', address: v.normalized } : { kind: 'unknown', reason: v.reason };
   }
   return { kind: 'unknown', reason: 'Not an address or WalletConnect code' };
+}
+
+/** EIP-681 numbers may be decimal, scientific (2.014e18) or hex. Returns base-unit decimal string. */
+export function parseEip681Number(v: string | null): string | undefined | 'invalid' {
+  if (v === null || v === '') return undefined;
+  if (/^0x[0-9a-fA-F]+$/.test(v)) return BigInt(v).toString();
+  const m = /^(\d+)(?:\.(\d+))?(?:e(\d+))?$/i.exec(v);
+  if (!m) return 'invalid';
+  const [, int, frac = '', exp = '0'] = m;
+  const e = Number(exp);
+  if (frac.length > e) return 'invalid'; // fractional base units
+  return BigInt(int + frac.padEnd(e, '0')).toString();
 }

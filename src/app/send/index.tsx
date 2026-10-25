@@ -29,6 +29,20 @@ export default function Send() {
       const r = takeScan();
       if (!r || r.kind !== 'address') return;
       setTo(r.address);
+      if (r.tokenAddress) {
+        // EIP-681 ERC-20 transfer: pick that token if we know it.
+        const chain = r.chainKey ?? TOKENS.find((t) => t.address.toLowerCase() === r.tokenAddress!.toLowerCase())?.chain;
+        const tok = chain ? findIn(TOKENS, chain, r.tokenAddress) : undefined;
+        if (!tok) {
+          setScanNote(`Unknown token ${r.tokenAddress}${r.chainKey ? '' : ' (no chain id)'} — add it under "Add custom token" first.`);
+          setAmount('');
+          return;
+        }
+        setTokenKey(`${tok.chain}:${tok.address}`);
+        setScanNote(`Token transfer request: ${tok.symbol} on ${CHAINS[tok.chain].name}`);
+        if (r.amount) setAmount(formatAmount(BigInt(r.amount), tok.decimals, tok.decimals));
+        return;
+      }
       const cur = TOKENS.find((t) => `${t.chain}:${t.address}` === tokenKey);
       const famOk = cur && CHAINS[cur.chain].family === r.family && (!r.chainKey || cur.chain === r.chainKey);
       if (!famOk) {
