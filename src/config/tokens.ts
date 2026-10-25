@@ -10,6 +10,8 @@ export interface TokenInfo {
   /** Treated as $1 for the demo "total" (testnet tokens have no real value). */
   stable?: boolean;
   source?: string;
+  /** User-imported (verified on-chain at import time). */
+  custom?: boolean;
 }
 
 export const NATIVE = 'native' as const;

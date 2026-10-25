@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 
 import type { ChainKey } from '@/config/chains';
-import { TOKENS, type TokenInfo } from '@/config/tokens';
+import type { TokenInfo } from '@/config/tokens';
 import { evmBalances, isEvmChain } from '@/services/evm';
 import { tronBalances } from '@/services/tron';
+import { useAllTokens } from '@/store/custom-tokens';
 import { useSession } from '@/vault/session';
 
 export interface TokenBalance extends TokenInfo {
@@ -11,10 +12,8 @@ export interface TokenBalance extends TokenInfo {
   error?: string;
 }
 
-const CHAIN_KEYS = [...new Set(TOKENS.map((t) => t.chain))];
-
-async function chainBalances(chain: ChainKey, evm: `0x${string}`, tron: string): Promise<TokenBalance[]> {
-  const tokens = TOKENS.filter((t) => t.chain === chain);
+async function chainBalances(all: TokenInfo[], chain: ChainKey, evm: `0x${string}`, tron: string): Promise<TokenBalance[]> {
+  const tokens = all.filter((t) => t.chain === chain);
   try {
     const b = isEvmChain(chain) ? await evmBalances(chain, evm, tokens) : await tronBalances(tron, tokens);
     return tokens.map((t) => ({ ...t, balance: b[t.address] ?? 0n }));
@@ -26,12 +25,15 @@ async function chainBalances(chain: ChainKey, evm: `0x${string}`, tron: string):
 
 export function useBalances() {
   const { accounts } = useSession();
+  const { tokens, ready } = useAllTokens();
+  const keys = tokens.map((t) => `${t.chain}:${t.address}`).join(',');
   return useQuery({
-    queryKey: ['balances', accounts?.evm.address, accounts?.tron.address],
-    enabled: !!accounts,
+    queryKey: ['balances', accounts?.evm.address, accounts?.tron.address, keys],
+    enabled: !!accounts && ready,
     staleTime: 15_000,
     queryFn: async () => {
-      const lists = await Promise.all(CHAIN_KEYS.map((c) => chainBalances(c, accounts!.evm.address, accounts!.tron.address)));
+      const chains = [...new Set(tokens.map((t) => t.chain))];
+      const lists = await Promise.all(chains.map((c) => chainBalances(tokens, c, accounts!.evm.address, accounts!.tron.address)));
       return lists.flat();
     },
   });
