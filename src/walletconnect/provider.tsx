@@ -6,27 +6,61 @@ import { CHAIN_LIST } from '@/config/chains';
 import { isReownConfigured } from '@/config/env';
 import { useSession } from '@/vault/session';
 
-import { approveProposal, getWalletKit, rejectProposal, rejectRequest, subscribe, unsupportedChains, type Proposal } from './walletkit';
+import { analyzeRequest, verifyRisks } from './requests';
+import { SigningSheet, type PendingRequest } from './signing-sheet';
+import {
+  approveProposal,
+  emitChainChanged,
+  getWalletKit,
+  rejectProposal,
+  respondError,
+  respondResult,
+  sessionChains,
+  subscribe,
+  unsupportedChains,
+  type Proposal,
+  type SessionRequest,
+} from './walletkit';
 
-/** Mount while unlocked: inits WalletKit and handles proposals / requests. */
+/** Mount while unlocked: inits WalletKit, handles proposals and routes requests to the signing sheet. */
 export function WalletConnectHost() {
   const { accounts } = useSession();
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [queue, setQueue] = useState<PendingRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isReownConfigured()) return;
+    if (!isReownConfigured() || !accounts) return;
     getWalletKit().catch((e) => console.warn('[walletkit] init failed', e?.message));
-    return subscribe({
-      onProposal: setProposal,
-      // Day 4–5: route to a signing sheet. For now reject so dApps don't hang.
-      onRequest: (r) => void rejectRequest(r, 'VaultLite: signing UI not available yet').catch(() => {}),
-    });
-  }, []);
+    const onRequest = async (r: SessionRequest) => {
+      const kit = await getWalletKit();
+      const session = kit.getActiveSessions()[r.topic];
+      const { method, params } = r.params.request;
+      const a = analyzeRequest({
+        method,
+        params,
+        chainId: r.params.chainId,
+        sessionChains: sessionChains(r.topic, r.params.chainId),
+        evmAddress: accounts.evm.address,
+        tronAddress: accounts.tron.address,
+        verify: r.verifyContext?.verified,
+      });
+      if (a.kind === 'error') return respondError(r, a.error).catch(() => {});
+      if (a.kind === 'switch_chain') {
+        await respondResult(r, null).catch(() => {});
+        return emitChainChanged(r.topic, a.target.caip2, a.target.chainId!).catch(() => {});
+      }
+      const peer = { name: session?.peer.metadata.name ?? 'Unknown dApp', url: session?.peer.metadata.url ?? '' };
+      setQueue((q) => [...q, { request: r, analysis: a, peer }]);
+    };
+    return subscribe({ onProposal: setProposal, onRequest: (r) => void onRequest(r) });
+  }, [accounts]);
 
+  if (queue[0]) return <SigningSheet key={queue[0].request.id} item={queue[0]} onClose={() => setQueue((q) => q.slice(1))} />;
   if (!proposal || !accounts) return null;
   const meta = proposal.params.proposer.metadata;
   const bad = unsupportedChains(proposal.params, CHAIN_LIST.map((c) => c.caip2));
+  const risks = verifyRisks(proposal.verifyContext?.verified);
   const close = () => {
     setProposal(null);
     setError(null);
@@ -37,12 +71,12 @@ export function WalletConnectHost() {
         <Card>
           <T variant="title">Connect to {meta.name}?</T>
           <T variant="caption">{meta.url}</T>
-          {proposal.verifyContext?.verified?.validation === 'INVALID' && <T variant="error">Domain verification failed</T>}
+          {risks.map((r, i) => <T key={i} variant={r.level === 'danger' ? 'error' : 'caption'}>{r.level === 'danger' ? '⛔' : '⚠️'} {r.text}</T>)}
           {bad.length > 0 && <T variant="error">Requests unsupported (non-testnet?) chains: {bad.join(', ')}</T>}
           {error && <T variant="error">{error}</T>}
           <Button
             title="Approve"
-            disabled={bad.length > 0}
+            disabled={bad.length > 0 || !!proposal.verifyContext?.verified?.isScam}
             onPress={() =>
               approveProposal(proposal, accounts.evm.address, accounts.tron.address)
                 .then(close)

@@ -75,11 +75,25 @@ export async function rejectProposal(p: Proposal) {
   await (await getWalletKit()).rejectSession({ id: p.id, reason: getSdkError('USER_REJECTED') });
 }
 
-export async function rejectRequest(r: SessionRequest, message = 'Signing not supported yet') {
-  await (await getWalletKit()).respondSessionRequest({
-    topic: r.topic,
-    response: { id: r.id, jsonrpc: '2.0', error: { code: 4001, message } },
-  });
+export async function respondError(r: SessionRequest, error: { code: number; message: string }) {
+  await (await getWalletKit()).respondSessionRequest({ topic: r.topic, response: { id: r.id, jsonrpc: '2.0', error } });
+}
+
+export async function respondResult(r: SessionRequest, result: unknown) {
+  await (await getWalletKit()).respondSessionRequest({ topic: r.topic, response: { id: r.id, jsonrpc: '2.0', result } });
+}
+
+/** Tell the dApp the active EVM chain changed (after wallet_switchEthereumChain). */
+export async function emitChainChanged(topic: string, caip2: string, chainId: number) {
+  await (await getWalletKit()).emitSessionEvent({ topic, event: { name: 'chainChanged', data: chainId }, chainId: caip2 });
+}
+
+/** Chains approved in this session for the namespace of `caip2`. */
+export function sessionChains(topic: string, caip2: string): string[] {
+  const s = kit?.getActiveSessions()[topic];
+  const ns = s?.namespaces[caip2.split(':')[0]];
+  if (!ns) return [];
+  return ns.chains ?? ns.accounts.map((a) => a.split(':').slice(0, 2).join(':'));
 }
 
 export async function listSessions() {
