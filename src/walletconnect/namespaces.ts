@@ -1,12 +1,12 @@
 import { EVM_CHAINS, CHAINS } from '@/config/chains';
 
+/** Only methods we actually implement. eth_sign / eth_signTransaction are intentionally absent. */
 export const EVM_METHODS = [
   'eth_sendTransaction',
-  'eth_signTransaction',
   'personal_sign',
-  'eth_sign',
   'eth_signTypedData',
   'eth_signTypedData_v4',
+  'wallet_switchEthereumChain',
 ] as const;
 export const EVM_EVENTS = ['chainChanged', 'accountsChanged'] as const;
 export const TRON_METHODS = ['tron_signTransaction', 'tron_signMessage'] as const;
