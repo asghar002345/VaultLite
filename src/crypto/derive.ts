@@ -78,3 +78,12 @@ export function deriveAccounts(secret: WalletSecret, index = 0): DerivedAccounts
     solana: { ...solana, path: null, note: 'Not available for private-key imports.' },
   };
 }
+
+/** Signing keys for the current secret. Call only right before signing; never store the result. */
+export function signingKeys(secret: WalletSecret, index = 0): { evm: `0x${string}`; tron: `0x${string}` } {
+  if (secret.kind === 'mnemonic') {
+    return { evm: evmPrivateKeyFromMnemonic(secret.mnemonic, index), tron: tronPrivateKeyFromMnemonic(secret.mnemonic, index) };
+  }
+  const pk = normalizePrivateKey(secret.privateKey);
+  return { evm: pk, tron: pk };
+}

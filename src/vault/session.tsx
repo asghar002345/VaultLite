@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
-import { deriveAccounts, type DerivedAccounts, type WalletSecret } from '@/crypto/derive';
+import { deriveAccounts, signingKeys, type DerivedAccounts, type WalletSecret } from '@/crypto/derive';
+
+import { biometricsAvailable, confirmBiometric } from './biometrics';
 
 import { vault } from './index';
 
@@ -18,6 +20,11 @@ interface SessionCtx {
   unlockWithBiometrics: () => Promise<void>;
   lock: () => void;
   reset: () => Promise<void>;
+  /** Biometric (or PIN fallback) re-auth before signing. */
+  reauth: (pin?: string) => Promise<boolean>;
+  canBiometricReauth: () => Promise<boolean>;
+  /** Run `fn` with signing keys derived on demand; keys are not retained. */
+  withKeys: <T>(fn: (k: { evm: `0x${string}`; tron: `0x${string}` }) => Promise<T>) => Promise<T>;
 }
 
 const Ctx = createContext<SessionCtx | null>(null);
@@ -72,6 +79,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       unlockWithPin: async (pin) => open(await vault.unlockWithPin(pin)),
       unlockWithBiometrics: async () => open(await vault.unlockWithBiometrics()),
       lock,
+      canBiometricReauth: async () => (await vault.biometricsEnabled()) && (await biometricsAvailable()),
+      reauth: async (pin) => {
+        if (pin !== undefined) {
+          try {
+            await vault.unlockWithPin(pin);
+            return true;
+          } catch {
+            return false;
+          }
+        }
+        return confirmBiometric('Confirm transaction');
+      },
+      withKeys: async (fn) => {
+        if (!secretRef.current) throw new Error('Wallet is locked');
+        return fn(signingKeys(secretRef.current));
+      },
       reset: async () => {
         await vault.wipe();
         secretRef.current = null;
