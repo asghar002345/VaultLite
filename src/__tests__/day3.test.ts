@@ -33,7 +33,7 @@ describe('parseScan', () => {
   });
   it('rejects mainnet chain ids, function calls, bad checksums and junk', () => {
     expect(parseScan(`ethereum:${ADDR}@1`)).toMatchObject({ kind: 'unknown', reason: expect.stringMatching(/not a supported testnet/) });
-    expect(parseScan(`ethereum:${ADDR}@11155111/transfer?address=${ADDR}`).kind).toBe('unknown');
+    expect(parseScan(`ethereum:${ADDR}@11155111/approve?address=${ADDR}`).kind).toBe('unknown');
     expect(parseScan('0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAeD').kind).toBe('unknown');
     expect(parseScan('hello').kind).toBe('unknown');
   });

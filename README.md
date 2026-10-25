@@ -53,4 +53,5 @@ docs/BUNDLER_PROXY.md    spec for the Pimlico proxy backend (no key in the app)
 Day 1: scaffold, keys, vault, onboarding/lock/home screens, config, extension-point stubs, tests.
 Day 2: React Query balances (4 EVM testnets + Tron Nile), home/token/receive screens, send flow (EVM native/ERC-20, Tron TRX/TRC-20) with EIP-1559 tiers, hold-to-confirm and biometric/PIN re-auth, WalletConnect (WalletKit init, proposals, sessions), bundler proxy spec.
 Day 3: QR scanner (addresses + WalletConnect), local tx history with pending on Home, Tron bandwidth/energy fee estimate, on-chain-verified custom tokens, EVM speed-up/cancel, readable RPC errors.
+Day 4–5: WalletConnect signing sheet (EVM + Tron, decoded calldata, typed-data tree, risk hints, Verify API, biometric gating, EIP-1193 error codes), incoming transfers via keyless explorers, EIP-681 token-transfer QR.
 WalletConnect, the camera and other native modules need a **dev build** (`npx expo run:android` / EAS), not Expo Go.
