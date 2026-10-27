@@ -62,7 +62,7 @@ export function SegmentedPills<K extends string>({ items, value, onChange, testI
   const indicator = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() }], width: w.get() }));
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} testID={testID} style={s.segScroll} contentContainerStyle={[s.seg, { backgroundColor: t.surface, borderColor: t.border }]}>
-      <Animated.View style={[s.segIndicator, { backgroundColor: t.surfaceRaised, borderColor: t.accent }, indicator]} />
+      <Animated.View style={[s.segIndicator, { backgroundColor: t.surfaceRaised, borderColor: t.border }, indicator]} />
       {items.map((it) => {
         const active = it.key === value;
         return (
@@ -80,7 +80,7 @@ export function SegmentedPills<K extends string>({ items, value, onChange, testI
               onChange(it.key);
             }}
             style={s.segItem}>
-            <Text style={{ color: active ? t.text : t.textSecondary, fontFamily: active ? Fonts.uiSemi : Fonts.uiMedium, fontSize: 13 }}>{it.label}</Text>
+            <Text style={{ color: active ? t.text : t.textSecondary, fontFamily: Fonts.uiMedium, fontSize: 13 }}>{it.label}</Text>
           </Pressable>
         );
       })}
@@ -112,13 +112,13 @@ export function Skeleton({ height = 56 }: { height?: number }) {
   );
 }
 
-/** Chain-tinted orb with the token's initial. */
+/** Quiet monogram mark: raised surface, hairline, serif initial (bone, or brass for a few chains). */
 export function TokenOrb({ chain, symbol, size = 40 }: { chain: string; symbol: string; size?: number }) {
   const t = useTheme();
-  const hue = ChainHue[chain] ?? t.accent;
+  const hue = ChainHue[chain] ?? t.text;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: alpha(hue, 0.15), borderWidth: 1, borderColor: alpha(hue, 0.5), alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: hue, fontFamily: Fonts.display, fontSize: size * 0.42 }}>{symbol.slice(0, 1)}</Text>
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: t.surfaceRaised, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: hue, fontFamily: Fonts.display, fontSize: size * 0.5, lineHeight: size * 0.62 }}>{symbol.slice(0, 1)}</Text>
     </View>
   );
 }

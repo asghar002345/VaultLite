@@ -54,7 +54,7 @@ export default function CreateEscrow() {
     return (
       <Screen testID="escrow-create-review">
         <T variant="title">Review escrow</T>
-        <Section title="Summary">
+        <Section title="Summary" group>
           <ListRow icon="currency" title="Total" value={`${formatAmount(total, 6)} USDC`} subtitle={`${parsed.length} milestone(s): ${(parsed as bigint[]).map((a) => formatAmount(a, 6)).join(' · ')}`} />
           <ListRow icon="wallet" title="Provider" value={short(provider)} />
           <ListRow icon="dispute" title="Arbiter" value={short(arbiter)} />

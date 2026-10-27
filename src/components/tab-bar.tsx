@@ -9,7 +9,7 @@ import { Fonts, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { haptic, Springs, useMotion } from '@/motion';
 
-const ICON: Record<string, IconName> = { home: 'home', activity: 'activity', escrow: 'escrow', settings: 'settings' };
+const ICON: Record<string, IconName> = { home: 'home', activity: 'activity', connect: 'connect', settings: 'settings' };
 
 /** Floating tab bar with a spring-sliding pill indicator. */
 export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps) {

@@ -16,19 +16,19 @@ export default function SettingsHub() {
     <Screen tab testID="settings-hub">
       <T variant="title">Settings</T>
       <TestnetBanner />
-      <Section title="Security">
+      <Section title="Security" group>
         <ListRow testID="row-security" icon="shield" title="Security" subtitle={`PIN, biometrics, recovery phrase · auto-lock ${autoLockLabel(st.autoLockMs).toLowerCase()}`} onPress={() => router.push('/settings/security')} />
       </Section>
-      <Section title="Wallet">
+      <Section title="Wallet" group>
         <ListRow testID="row-networks" icon="network" title="Networks" subtitle={st.hiddenChains.length ? `${st.hiddenChains.length} hidden on Home` : 'All testnets shown'} onPress={() => router.push('/settings/networks')} />
         <ListRow icon="plus" title="Custom tokens" subtitle="Import an ERC-20 / TRC-20 by address" onPress={() => router.push('/tokens/add')} />
-        <ListRow testID="row-wc" icon="connect" title="Connected dApps" subtitle={isReownConfigured() ? 'WalletConnect sessions' : 'WalletConnect not configured'} onPress={() => router.push('/walletconnect')} />
+        <ListRow testID="row-wc" icon="connect" title="Connected dApps" subtitle={isReownConfigured() ? 'WalletConnect sessions' : 'WalletConnect not configured'} onPress={() => router.navigate('/connect')} />
       </Section>
-      <Section title="Preferences">
+      <Section title="Preferences" group>
         <ListRow testID="row-appearance" icon="palette" title="Appearance" value="Vault Dark" onPress={() => router.push('/settings/appearance')} />
         <ListRow testID="row-currency" icon="currency" title="Currency" value="USD" onPress={() => router.push('/settings/currency')} />
       </Section>
-      <Section title="App">
+      <Section title="App" group>
         <ListRow testID="row-about" icon="info" title="About VaultLite" onPress={() => router.push('/settings/about')} />
         <ListRow icon="lock" title="Lock now" onPress={lock} />
         <ListRow testID="row-reset" icon="trash" title="Reset wallet" subtitle="Erase this wallet from the device" danger onPress={() => setConfirmReset(true)} />

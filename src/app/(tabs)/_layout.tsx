@@ -7,7 +7,7 @@ export default function TabsLayout() {
     <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="home" options={{ title: 'Home' }} />
       <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
-      <Tabs.Screen name="escrow" options={{ title: 'Escrow' }} />
+      <Tabs.Screen name="connect" options={{ title: 'Connect' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     </Tabs>
   );

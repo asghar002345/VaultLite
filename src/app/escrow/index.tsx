@@ -22,8 +22,7 @@ export default function EscrowList() {
   const list = useQuery({ queryKey: ['escrows', me], enabled: !!me, queryFn: () => service.listForAccount(ESCROW_CHAIN, me!) });
   const credit = useQuery({ queryKey: ['escrow-withdrawable', me], enabled: !!me, queryFn: () => service.withdrawable(ESCROW_CHAIN, me!, ESCROW_USDC) });
   return (
-    <Screen tab wide testID="escrow-list">
-      <T variant="title">Escrow</T>
+    <Screen wide testID="escrow-list">
       <TestnetBanner />
       <T variant="caption">Milestone escrow on Base Sepolia · USDC</T>
       <Button title="New escrow" icon="plus" testID="escrow-new" onPress={() => router.push('/escrow/create')} />

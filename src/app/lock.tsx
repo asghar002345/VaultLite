@@ -3,12 +3,13 @@ import { View } from 'react-native';
 
 import Animated from 'react-native-reanimated';
 
-import { Aurora } from '@/components/fx/skia';
-import { ConfirmSheet, Notice } from '@/components/states';
-import { Button, Input, Screen, T } from '@/components/ui';
+import { Monogram } from '@/components/brand';
+import { applyKey, Keypad } from '@/components/keypad';
+import { ConfirmSheet } from '@/components/states';
+import { Button, Screen, T } from '@/components/ui';
 import { PinDots } from '@/components/wallet';
 import { Spacing } from '@/constants/theme';
-import { haptic, useMotion } from '@/motion';
+import { useMotion } from '@/motion';
 import { vault } from '@/vault';
 import { biometricsAvailable } from '@/vault/biometrics';
 import { useSession } from '@/vault/session';
@@ -41,11 +42,11 @@ export default function Lock() {
     })();
   }, [tryBio]);
 
-  const submit = async () => {
+  const submit = async (value: string) => {
     setBusy(true);
     setError(null);
     try {
-      await unlockWithPin(pin);
+      await unlockWithPin(value);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setPin('');
@@ -53,38 +54,39 @@ export default function Lock() {
       setBusy(false);
     }
   };
+  const onKey = useCallback(
+    (k: string) => {
+      if (busy) return;
+      if (k === 'bio') return void tryBio();
+      setError(null);
+      const next = applyKey(pin, k, { maxLength: 6 });
+      if (next === pin) return;
+      setPin(next);
+      if (next.length === 6) void submit(next);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [busy, tryBio, pin],
+  );
 
   return (
-    <Screen backdrop={<Aurora intensity={0.8} />}>
-      <View style={{ alignItems: 'center', gap: Spacing.md, marginTop: Spacing.xxl }}>
-        <Animated.View entering={m.pop()}>
-          <T variant="hero">Locked</T>
-        </Animated.View>
-        <T variant="caption">Enter your 6-digit PIN</T>
-        <PinDots length={6} filled={pin.length} error={!!error} shakeKey={shake} />
+    <Screen scroll={false} testID="lock">
+      <View style={{ flex: 1, justifyContent: 'center', gap: Spacing.xl }}>
+        <View style={{ alignItems: 'center', gap: Spacing.md }}>
+          <Animated.View entering={m.pop()}>
+            <Monogram size={64} />
+          </Animated.View>
+          <T variant="title" style={{ textAlign: 'center' }}>Enter PIN</T>
+          <T variant="caption" style={{ textAlign: 'center' }}>Unlock your VaultLite wallet</T>
+          <View testID="lock-dots" accessibilityLabel={`${pin.length} of 6 digits entered`}>
+            <PinDots length={6} filled={pin.length} error={!!error} shakeKey={shake} />
+          </View>
+          {error ? <T variant="error" style={{ textAlign: 'center' }}>{error}</T> : <T variant="caption"> </T>}
+        </View>
+        <Keypad round onKey={onKey} disabled={busy} left={bio ? { key: 'bio', icon: 'face', accessibilityLabel: 'Unlock with biometrics' } : null} />
       </View>
-      <Input
-        testID="lock-pin"
-        placeholder="Enter PIN"
-        keyboardType="number-pad"
-        secureTextEntry
-        maxLength={6}
-        value={pin}
-        onChangeText={(v) => {
-          if (v.length > pin.length) haptic.light();
-          setError(null);
-          setPin(v);
-        }}
-        onSubmitEditing={submit}
-        style={{ textAlign: 'center', letterSpacing: 8 }}
-      />
-      {error && <Notice tone="danger">{error}</Notice>}
-      <Button testID="unlock" title={busy ? 'Unlocking…' : 'Unlock'} disabled={busy || pin.length !== 6} onPress={submit} />
-      {bio && <Button variant="secondary" icon="biometrics" title="Use biometrics" onPress={tryBio} />}
       <Button
-        title="Reset wallet"
+        title="Forgot PIN?"
         variant="ghost"
-        icon="trash"
         testID="lock-reset"
         onPress={() => setConfirmReset(true)}
       />
@@ -92,7 +94,7 @@ export default function Lock() {
         visible={confirmReset}
         danger
         title="Reset wallet?"
-        body="This erases the encrypted secret from this device. You need your recovery phrase to restore."
+        body="Without the PIN the only way back in is your recovery phrase. This erases the encrypted wallet from this device so you can restore it."
         confirmLabel="Erase"
         onCancel={() => setConfirmReset(false)}
         onConfirm={() => { setConfirmReset(false); void reset(); }}

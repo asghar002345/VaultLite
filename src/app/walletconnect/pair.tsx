@@ -20,7 +20,7 @@ export default function Pair() {
     return (
       <Screen testID="wc-pair-done">
         <SuccessState title="dApp connected" body="Requests from it will appear here for approval.">
-          <Button title="View sessions" onPress={() => router.replace('/walletconnect')} />
+          <Button title="View sessions" onPress={() => router.replace('/connect')} />
         </SuccessState>
       </Screen>
     );

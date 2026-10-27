@@ -18,7 +18,7 @@ export default function About() {
       <Section title="Networks">
         <T variant="caption">{CHAIN_LIST.map((c) => c.name).join(' · ')}</T>
       </Section>
-      <Section title="Integrations">
+      <Section title="Integrations" group>
         <ListRow icon="connect" title="WalletConnect (Reown)" value={isReownConfigured() ? 'Configured' : 'Not configured'} />
         {escrow ? (
           <ListRow icon="escrow" title="MilestoneEscrow (Base Sepolia)" subtitle={escrow} onPress={() => WebBrowser.openBrowserAsync(`https://repo.sourcify.dev/84532/${escrow}`)} />

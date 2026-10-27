@@ -35,12 +35,12 @@ export default function EscrowDetail() {
         <T variant="caption">You are the {role} · review period {Math.round(e.reviewPeriod / 3600)} h · deadline {new Date(e.deadline * 1000).toLocaleDateString()}</T>
         <MilestoneTrack milestones={e.milestones} />
       </Card>
-      <Section title="Parties">
+      <Section title="Parties" group>
         <ListRow icon="wallet" title="Client" value={short(e.client)} subtitle={role === 'client' ? 'You' : undefined} />
         <ListRow icon="wallet" title="Provider" value={short(e.provider)} subtitle={role === 'provider' ? 'You' : undefined} />
         <ListRow icon="dispute" title="Arbiter" value={short(e.arbiter)} subtitle={role === 'arbiter' ? 'You' : undefined} />
       </Section>
-      <Section title="Milestones">
+      <Section title="Milestones" group>
         {e.milestones.map((m) => (
           <ListRow key={m.index} icon={m.status === 'Released' ? 'success' : m.status === 'Submitted' ? 'pending' : m.status === 'Pending' ? 'timer' : 'undo'} title={`Milestone ${m.index + 1}`} value={`${formatAmount(m.amount, 6)} USDC`} subtitle={m.status} />
         ))}

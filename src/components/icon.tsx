@@ -1,5 +1,7 @@
 import {
   Activity,
+  Delete,
+  ScanFace,
   ArrowDownLeft,
   ArrowUpRight,
   Ban,
@@ -107,6 +109,8 @@ const MAP = {
   dispute: Gavel,
   undo: Undo2,
   withdraw: Download,
+  backspace: Delete,
+  face: ScanFace,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof MAP;
@@ -115,5 +119,5 @@ export const IconSize = { sm: 16, md: 20, lg: 24, xl: 40 } as const;
 export function Icon({ name, size = 'md', color = 'text', tint }: { name: IconName; size?: keyof typeof IconSize; color?: ThemeColor; tint?: string }) {
   const t = useTheme();
   const C = MAP[name];
-  return <C size={IconSize[size]} color={tint ?? t[color]} strokeWidth={2} accessible={false} />;
+  return <C size={IconSize[size]} color={tint ?? t[color]} strokeWidth={1.5} accessible={false} />;
 }

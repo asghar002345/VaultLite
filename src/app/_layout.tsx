@@ -65,7 +65,8 @@ function RootStack() {
         <Stack.Screen name="send/index" options={{ headerShown: true, title: 'Send' }} />
         <Stack.Screen name="send/review" options={{ headerShown: true, title: 'Review' }} />
         <Stack.Screen name="send/status/[hash]" options={{ headerShown: true, title: 'Status', headerBackVisible: false }} />
-        <Stack.Screen name="walletconnect/index" options={{ headerShown: true, title: 'Connected dApps' }} />
+        <Stack.Screen name="escrow/index" options={{ headerShown: true, title: 'Escrow' }} />
+        <Stack.Screen name="tokens/index" options={{ headerShown: true, title: 'Assets' }} />
         <Stack.Screen name="walletconnect/pair" options={{ headerShown: true, title: 'Connect a dApp' }} />
         <Stack.Screen name="walletconnect/[topic]" options={{ headerShown: true, title: 'Session' }} />
         <Stack.Screen name="walletconnect/request" options={{ headerShown: true, title: 'Request', gestureEnabled: false }} />

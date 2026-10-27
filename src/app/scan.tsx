@@ -38,7 +38,7 @@ export default function Scan() {
       try {
         if (r.kind === 'wc') {
           await pair(r.uri);
-          router.replace('/walletconnect');
+          router.replace('/connect');
         } else {
           putScan(r);
           router.replace('/send');

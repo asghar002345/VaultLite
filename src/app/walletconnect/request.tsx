@@ -73,7 +73,7 @@ export default function WalletConnectRequest() {
   if (!item)
     return (
       <Screen testID="wc-request-empty">
-        <EmptyState icon="success" title="Nothing to approve" body="This request was already answered or expired." action={{ label: 'Connected dApps', onPress: () => router.replace('/walletconnect') }} />
+        <EmptyState icon="success" title="Nothing to approve" body="This request was already answered or expired." action={{ label: 'Connected dApps', onPress: () => router.replace('/connect') }} />
       </Screen>
     );
   return <RequestView key={item.request.id} item={item} />;

@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { Aurora } from '@/components/fx/skia';
+import { Monogram } from '@/components/brand';
 import { Button, Screen, T, TestnetBanner } from '@/components/ui';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -12,22 +12,23 @@ export default function Welcome() {
   const t = useTheme();
   const m = useMotion();
   return (
-    <Screen scroll={false} backdrop={<Aurora intensity={1.1} />}>
+    <Screen scroll={false}>
       <TestnetBanner />
       <View style={s.center}>
         <Animated.View entering={m.enter(0)}>
-          <T style={[s.word, { color: t.text }]}>
-            vault<T style={[s.word, { color: t.primary }]}>lite</T>
-          </T>
+          <Monogram size={72} />
+        </Animated.View>
+        <Animated.View entering={m.enter(1)}>
+          <T style={[s.word, { color: t.text }]}>VaultLite</T>
         </Animated.View>
         <Animated.View entering={m.enter(2)}>
-          <T style={s.tag}>Keys that never leave your hands.</T>
+          <T style={[s.tag, { color: t.textSecondary }]}>Keys that never leave your hands.</T>
         </Animated.View>
         <Animated.View entering={m.enter(3)}>
           <T variant="caption" style={{ textAlign: 'center' }}>Self-custodial · multi-chain · testnets only</T>
         </Animated.View>
       </View>
-      <Animated.View entering={m.enter(5)} style={{ gap: Spacing.sm }}>
+      <Animated.View entering={m.enter(5)} style={{ gap: Spacing.smd }}>
         <Button testID="create" title="Create new wallet" onPress={() => router.push('/create')} />
         <Button testID="import" variant="ghost" title="Import existing wallet" onPress={() => router.push('/import')} />
       </Animated.View>
@@ -37,6 +38,6 @@ export default function Welcome() {
 
 const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.md },
-  word: { fontFamily: Fonts.display, fontSize: 64, letterSpacing: -3 },
-  tag: { fontFamily: Fonts.displayMedium, fontSize: 20, textAlign: 'center', letterSpacing: -0.3 },
+  word: { fontFamily: Fonts.display, fontSize: 48, lineHeight: 52, letterSpacing: -0.96 },
+  tag: { fontFamily: Fonts.ui, fontSize: 17, lineHeight: 24, textAlign: 'center' },
 });

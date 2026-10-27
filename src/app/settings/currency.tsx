@@ -7,7 +7,7 @@ export default function Currency() {
   const stables = TOKENS.filter((t) => t.stable);
   return (
     <Screen testID="settings-currency">
-      <Section title="Display currency">
+      <Section title="Display currency" group>
         <ListRow icon="currency" title="US Dollar (USD)" subtitle="Used for the Home total" right={<Icon name="check" color="primary" />} />
       </Section>
       <Notice tone="info">

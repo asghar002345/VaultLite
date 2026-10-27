@@ -32,7 +32,7 @@ export default function Security() {
 
   return (
     <Screen testID="settings-security">
-      <Section title="Unlock">
+      <Section title="Unlock" group>
         <ListRow testID="row-change-pin" icon="key" title="Change PIN" subtitle="Re-encrypts the vault with a new PIN" onPress={() => router.push('/settings/security/pin')} />
         <ListRow
           icon="biometrics"
@@ -41,12 +41,12 @@ export default function Security() {
           right={<Switch testID="bio-switch" value={biometricsEnabled} disabled={!biometricsAvailable} onValueChange={(v) => setPending(v)} />}
         />
       </Section>
-      <Section title="Auto-lock">
+      <Section title="Auto-lock" group>
         {AUTO_LOCK_OPTIONS.map(({ ms, label }) => (
           <ListRow key={ms} testID={`autolock-${ms}`} icon="timer" title={label} onPress={() => updateSettings({ autoLockMs: ms })} right={autoLockMs === ms ? <Icon name="check" color="primary" /> : <></>} />
         ))}
       </Section>
-      <Section title="Recovery">
+      <Section title="Recovery" group>
         <ListRow testID="row-reveal" icon="show" title="Reveal recovery phrase" subtitle="Requires your PIN" danger onPress={() => router.push('/settings/security/reveal')} />
       </Section>
       <Notice>Auto-lock applies when the app goes to the background. The vault is always locked on a cold start.</Notice>

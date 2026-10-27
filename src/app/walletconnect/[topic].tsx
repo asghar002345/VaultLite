@@ -24,7 +24,7 @@ export default function SessionDetail() {
   if (!s)
     return (
       <Screen testID="wc-session-missing">
-        <EmptyState icon="disconnect" title="Session ended" body="This dApp is no longer connected." action={{ label: 'All sessions', onPress: () => router.replace('/walletconnect') }} />
+        <EmptyState icon="disconnect" title="Session ended" body="This dApp is no longer connected." action={{ label: 'All sessions', onPress: () => router.replace('/connect') }} />
       </Screen>
     );
 
@@ -57,7 +57,7 @@ export default function SessionDetail() {
         onCancel={() => { setConfirm(false); setErr(null); }}
         onConfirm={async () => {
           setBusy(true); setErr(null);
-          try { await disconnect(s.topic); setConfirm(false); router.replace('/walletconnect'); }
+          try { await disconnect(s.topic); setConfirm(false); router.replace('/connect'); }
           catch (e) { setErr(humanizeError(e)); }
           finally { setBusy(false); }
         }}
