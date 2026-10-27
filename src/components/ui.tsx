@@ -4,7 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useBreakpoint, useTabInset } from '@/components/layout';
-import { alpha, Fonts, FontSize, Layout, Radius, Spacing, Tabular } from '@/constants/theme';
+import { Fonts, FontSize, Layout, Radius, Spacing, Tabular } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Icon, type IconName } from '@/components/icon';
 import { haptic, Springs, useMotion } from '@/motion';
@@ -34,7 +34,7 @@ export function Screen({
       testID={testID}
       style={[
         styles.inner,
-        { maxWidth: wide ? Layout.maxContentWide : Layout.maxContent, padding: compact ? Spacing.md : Spacing.lg },
+        { maxWidth: wide ? Layout.maxContentWide : Layout.maxContent, padding: compact ? Spacing.md : Layout.margin, paddingTop: Spacing.lg },
         tab && { paddingBottom: tabInset },
       ]}>
       {children}
@@ -48,18 +48,20 @@ export function Screen({
   );
 }
 
-type Variant = 'body' | 'title' | 'hero' | 'caption' | 'label' | 'mono' | 'error' | 'amount';
+type Variant = 'body' | 'title' | 'hero' | 'headline' | 'overline' | 'caption' | 'label' | 'mono' | 'error' | 'amount';
 export function T({ variant = 'body', style, ...p }: TextProps & { variant?: Variant }) {
   const t = useTheme();
   const v = {
-    body: { fontSize: FontSize.body, fontFamily: Fonts.ui, color: t.text },
-    label: { fontSize: FontSize.label, fontFamily: Fonts.uiSemi, color: t.text },
-    title: { fontSize: FontSize.title, fontFamily: Fonts.display, color: t.text, letterSpacing: -0.5 },
-    hero: { fontSize: FontSize.hero, fontFamily: Fonts.display, color: t.text, letterSpacing: -1.5 },
-    caption: { fontSize: FontSize.caption, fontFamily: Fonts.uiMedium, color: t.textSecondary, letterSpacing: 0.2 },
-    mono: { fontSize: 13, fontFamily: Fonts.mono, color: t.text },
-    error: { fontSize: FontSize.label, fontFamily: Fonts.uiMedium, color: t.danger },
-    amount: { fontSize: FontSize.body, fontFamily: Fonts.uiSemi, color: t.text, ...Tabular },
+    body: { fontSize: FontSize.body, lineHeight: 22, fontFamily: Fonts.ui, color: t.text },
+    label: { fontSize: FontSize.label, lineHeight: 22, fontFamily: Fonts.uiMedium, color: t.text },
+    headline: { fontSize: FontSize.headline, lineHeight: 26, fontFamily: Fonts.uiMedium, color: t.text },
+    title: { fontSize: FontSize.title, lineHeight: 34, fontFamily: Fonts.display, color: t.text, letterSpacing: -0.3 },
+    hero: { fontSize: FontSize.hero, lineHeight: 52, fontFamily: Fonts.display, color: t.text, letterSpacing: -0.96, ...Tabular },
+    overline: { fontSize: 12, lineHeight: 16, fontFamily: Fonts.uiMedium, color: t.textSecondary, letterSpacing: 0.96, textTransform: 'uppercase' as const },
+    caption: { fontSize: 13, lineHeight: 18, fontFamily: Fonts.ui, color: t.textSecondary },
+    mono: { fontSize: FontSize.mono, lineHeight: 18, fontFamily: Fonts.mono, color: t.text },
+    error: { fontSize: 13, lineHeight: 18, fontFamily: Fonts.uiMedium, color: t.danger },
+    amount: { fontSize: FontSize.body, lineHeight: 22, fontFamily: Fonts.uiMedium, color: t.text, ...Tabular },
   }[variant];
   return <Text {...p} style={[v, style]} />;
 }
@@ -104,7 +106,7 @@ export function Button({
   const t = useTheme();
   const press = usePressScale();
   const bg = { primary: t.primary, danger: t.danger, secondary: t.surfaceRaised, ghost: 'transparent' }[variant];
-  const fg = variant === 'secondary' || variant === 'ghost' ? t.text : t.onPrimary;
+  const fg = variant === 'secondary' || variant === 'ghost' ? t.text : variant === 'danger' ? t.onDanger : t.onPrimary;
   return (
     <AnimatedPressable
       testID={testID}
@@ -123,13 +125,13 @@ export function Button({
       style={[
         styles.btn,
         { backgroundColor: bg, opacity: disabled ? 0.38 : 1 },
-        variant === 'ghost' && { borderWidth: 1, borderColor: t.border },
-        variant === 'primary' && !disabled && { shadowColor: t.primary, shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+        variant === 'secondary' && { borderWidth: 1, borderColor: t.border },
+        variant === 'ghost' && { minHeight: 44 },
         press.style,
       ]}>
       <View style={styles.btnRow}>
         {icon ? <Icon name={icon} size="md" tint={fg} /> : null}
-        <Text style={{ color: fg, fontFamily: Fonts.uiSemi, fontSize: FontSize.body, letterSpacing: 0.1 }}>{title}</Text>
+        <Text style={{ color: variant === 'ghost' ? t.textSecondary : fg, fontFamily: Fonts.uiMedium, fontSize: FontSize.body }}>{title}</Text>
       </View>
     </AnimatedPressable>
   );
@@ -140,7 +142,7 @@ export function Input(p: TextInputProps) {
   return (
     <TextInput
       accessibilityLabel={p.accessibilityLabel ?? p.placeholder}
-      placeholderTextColor={t.textSecondary}
+      placeholderTextColor={t.textTertiary}
       autoCapitalize="none"
       autoCorrect={false}
       {...p}
@@ -161,9 +163,9 @@ export function TestnetBanner() {
       testID="testnet-banner"
       accessibilityRole="header"
       accessibilityLabel="Warning: testnet only. Tokens have no real value."
-      style={[styles.banner, { borderColor: t.warning, backgroundColor: alpha(t.warning, 0.1) }]}>
-      <View style={[styles.dot, { backgroundColor: t.warning }]} />
-      <Text style={{ color: t.warning, fontFamily: Fonts.uiSemi, fontSize: 12, letterSpacing: 0.6 }}>TESTNET ONLY · tokens have no real value</Text>
+      style={[styles.banner, { borderColor: t.border, backgroundColor: t.surface }]}>
+      <View style={[styles.dot, { backgroundColor: t.primary }]} />
+      <Text style={{ color: t.textSecondary, fontFamily: Fonts.uiMedium, fontSize: 12, letterSpacing: 0.96 }}>TESTNET</Text>
     </View>
   );
 }
@@ -171,11 +173,11 @@ export function TestnetBanner() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   grow: { flexGrow: 1 },
-  inner: { flex: 1, gap: Spacing.md, width: '100%', alignSelf: 'center' },
+  inner: { flex: 1, gap: Spacing.lg, width: '100%', alignSelf: 'center' },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  btn: { paddingVertical: 16, borderRadius: Radius.pill, alignItems: 'center' },
-  input: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.body },
-  card: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
-  banner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: Radius.pill, borderWidth: 1, alignSelf: 'center' },
+  btn: { minHeight: 56, justifyContent: 'center', paddingHorizontal: Spacing.lg, borderRadius: Radius.pill, alignItems: 'center' },
+  input: { borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.md, minHeight: 56, fontSize: FontSize.body },
+  card: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.smd },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, paddingHorizontal: 10, borderRadius: Radius.pill, borderWidth: 1, alignSelf: 'flex-start' },
   dot: { width: 6, height: 6, borderRadius: 3 },
 });

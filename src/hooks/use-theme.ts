@@ -1,14 +1,13 @@
 import { Colors, type Palette } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { resolveScheme, useSettings } from '@/store/settings';
 
-/** Dark-first: honours the user's theme preference; "system" is light only when the OS says light. */
+/**
+ * v3 is dark-only (the approved references enforce "Vault Dark"). The stored theme preference
+ * and `resolveScheme` are kept for compatibility, but the app always renders the dark palette.
+ */
 export function useIsDark() {
-  const system = useColorScheme();
-  const { theme } = useSettings();
-  return resolveScheme(theme, system) === 'dark';
+  return true;
 }
 
 export function useTheme(): Palette {
-  return useIsDark() ? Colors.dark : Colors.light;
+  return Colors.dark;
 }

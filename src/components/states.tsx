@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { Icon, type IconName } from '@/components/icon';
 import { Button, Card, Input, T } from '@/components/ui';
 import { Skeleton } from '@/components/wallet';
-import { alpha, Radius, Spacing } from '@/constants/theme';
+import { alpha, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { humanizeError } from '@/lib/errors';
 import { haptic, useMotion } from '@/motion';
@@ -28,7 +28,7 @@ function StateBlock({ icon, tone, title, body, children, testID }: { icon: IconN
   const m = useMotion();
   return (
     <Animated.View entering={m.fade()} testID={testID} style={[s.block, { borderColor: t.border, backgroundColor: t.surface }]} accessibilityRole="summary">
-      <View style={[s.badge, { backgroundColor: alpha(t[tone], 0.12) }]}>
+      <View style={[s.badge, { backgroundColor: t.surfaceRaised, borderColor: t.border }]}>
         <Icon name={icon} size="lg" color={tone} />
       </View>
       <T variant="label" style={{ textAlign: 'center' }}>{title}</T>
@@ -65,12 +65,12 @@ export function SuccessState({ title, body, children }: { title: string; body?: 
 /** Inline notice: info, warning, danger or the reason an action is disabled. */
 export function Notice({ tone = 'info', children, testID }: { tone?: 'info' | 'warning' | 'danger' | 'disabled'; children: ReactNode; testID?: string }) {
   const t = useTheme();
-  const c = { info: t.accent, warning: t.warning, danger: t.danger, disabled: t.textSecondary }[tone];
+  const c = { info: t.textSecondary, warning: t.primary, danger: t.danger, disabled: t.textTertiary }[tone];
   const icon: IconName = { info: 'info', warning: 'warning', danger: 'danger', disabled: 'ban' }[tone] as IconName;
   return (
-    <View testID={testID} accessibilityRole={tone === 'danger' ? 'alert' : 'text'} style={[s.notice, { borderColor: alpha(c, 0.4), backgroundColor: alpha(c, 0.08) }]}>
+    <View testID={testID} accessibilityRole={tone === 'danger' ? 'alert' : 'text'} style={[s.notice, { borderColor: tone === 'danger' ? alpha(t.danger, 0.5) : t.border, backgroundColor: tone === 'danger' ? alpha(t.danger, 0.08) : t.surface }]}>
       <Icon name={icon} size="sm" tint={c} />
-      <T variant="caption" style={{ color: tone === 'disabled' ? t.textSecondary : t.text, flex: 1 }}>{children}</T>
+      <T variant="caption" style={{ color: tone === 'disabled' ? t.textTertiary : t.textSecondary, flex: 1 }}>{children}</T>
     </View>
   );
 }
@@ -79,8 +79,8 @@ export function Notice({ tone = 'info', children, testID }: { tone?: 'info' | 'w
 export function Field({ label, helper, error, children }: { label: string; helper?: string; error?: string | null; children: ReactNode }) {
   const t = useTheme();
   return (
-    <View style={{ gap: 6 }}>
-      <T variant="label">{label}</T>
+    <View style={{ gap: Spacing.sm }}>
+      <T variant="overline">{label}</T>
       {children}
       {error ? (
         <View style={s.fieldErr} accessibilityRole="alert">
@@ -103,8 +103,12 @@ export function PinField({ value, onChange, label = 'PIN', testID, error, helper
 }
 
 /** Tappable list row used by settings and lists. */
+const GroupCtx = createContext(false);
+
+/** Tappable list row used by settings and lists. Inside `<Section group>` rows render flat with hairline dividers. */
 export function ListRow({ icon, title, subtitle, value, onPress, danger, testID, right }: { icon?: IconName; title: string; subtitle?: string; value?: string; onPress?: () => void; danger?: boolean; testID?: string; right?: ReactNode }) {
   const t = useTheme();
+  const grouped = useContext(GroupCtx);
   return (
     <Pressable
       testID={testID}
@@ -115,28 +119,41 @@ export function ListRow({ icon, title, subtitle, value, onPress, danger, testID,
         haptic.selection();
         onPress?.();
       }}
-      style={({ pressed }) => [s.row, { backgroundColor: pressed ? t.surfaceRaised : t.surface, borderColor: t.border }]}>
-      {icon ? (
-        <View style={[s.rowIcon, { backgroundColor: alpha(danger ? t.danger : t.accent, 0.12) }]}>
-          <Icon name={icon} size="md" color={danger ? 'danger' : 'accent'} />
-        </View>
-      ) : null}
+      style={({ pressed }) => [
+        s.row,
+        grouped ? { borderRadius: 0, borderWidth: 0, borderTopWidth: 1, borderColor: t.border, marginTop: -1 } : { borderColor: t.border },
+        { backgroundColor: pressed ? t.surfaceRaised : t.surface },
+      ]}>
+      {icon ? <Icon name={icon} size="md" tint={danger ? t.danger : t.textSecondary} /> : null}
       <View style={{ flex: 1 }}>
         <T variant="label" style={danger ? { color: t.danger } : undefined}>{title}</T>
         {subtitle ? <T variant="caption">{subtitle}</T> : null}
       </View>
-      {value ? <T variant="caption">{value}</T> : null}
+      {value ? <T variant="caption" style={{ fontFamily: Fonts.mono }}>{value}</T> : null}
       {right}
-      {onPress && !right ? <Icon name="chevron" size="sm" color="textSecondary" /> : null}
+      {onPress && !right ? <Icon name="chevron" size="sm" color="textTertiary" /> : null}
     </Pressable>
   );
 }
 
-export function Section({ title, children }: { title?: string; children: ReactNode }) {
+/** Titled section. `group` frames ListRows in one hairline card (settings-style). Sections sit 32px apart. */
+export function Section({ title, children, group, right }: { title?: string; children: ReactNode; group?: boolean; right?: ReactNode }) {
+  const t = useTheme();
   return (
-    <View style={{ gap: Spacing.sm }}>
-      {title ? <T variant="caption" style={{ letterSpacing: 1 }}>{title.toUpperCase()}</T> : null}
-      {children}
+    <View style={{ gap: Spacing.smd, marginTop: Spacing.sm }}>
+      {title || right ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          {title ? <T variant="overline">{title}</T> : <View />}
+          {right}
+        </View>
+      ) : null}
+      {group ? (
+        <GroupCtx.Provider value>
+          <View style={[s.group, { borderColor: t.border, backgroundColor: t.surface }]}>{children}</View>
+        </GroupCtx.Provider>
+      ) : (
+        children
+      )}
     </View>
   );
 }
@@ -178,10 +195,10 @@ export function ConfirmSheet({
           <Card raised style={{ borderRadius: Radius.xl, padding: Spacing.lg, gap: Spacing.md }}>
             <View style={[s.grab, { backgroundColor: t.border }]} />
             <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
-              <Icon name={danger ? 'danger' : 'info'} color={danger ? 'danger' : 'accent'} />
-              <T variant="title" style={{ fontSize: 20, flex: 1 }}>{title}</T>
+              {danger ? <Icon name="danger" color="danger" /> : null}
+              <T variant="title" style={{ flex: 1 }}>{title}</T>
             </View>
-            {body ? <T variant="caption" style={{ fontSize: 14 }}>{body}</T> : null}
+            {body ? <T style={{ color: t.textSecondary }}>{body}</T> : null}
             {children}
             {error ? <Notice tone="danger">{error}</Notice> : null}
             <Button testID="confirm-sheet-ok" variant={danger ? 'danger' : 'primary'} title={busy ? 'Working…' : confirmLabel} disabled={busy || confirmDisabled} onPress={onConfirm} />
@@ -195,12 +212,12 @@ export function ConfirmSheet({
 
 const s = StyleSheet.create({
   block: { alignItems: 'center', gap: Spacing.sm, padding: Spacing.lg, borderRadius: Radius.lg, borderWidth: 1 },
-  badge: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  notice: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start', padding: 12, borderRadius: Radius.md, borderWidth: 1 },
+  badge: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  notice: { flexDirection: 'row', gap: Spacing.smd, alignItems: 'flex-start', padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1 },
   fieldErr: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: Radius.lg, borderWidth: 1 },
-  rowIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 64, paddingHorizontal: Spacing.lg - 4, paddingVertical: Spacing.smd, borderRadius: Radius.lg, borderWidth: 1 },
+  group: { borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden' },
   scrim: { flex: 1, justifyContent: 'flex-end' },
-  sheetWrap: { padding: 12, width: '100%', maxWidth: 560, alignSelf: 'center' },
+  sheetWrap: { padding: Spacing.sm, width: '100%', maxWidth: 560, alignSelf: 'center' },
   grab: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center' },
 });

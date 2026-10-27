@@ -1,9 +1,9 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
-import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
-import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
+import { Geist_400Regular, Geist_500Medium } from '@expo-google-fonts/geist';
+import { GeistMono_400Regular } from '@expo-google-fonts/geist-mono';
+import { InstrumentSerif_400Regular } from '@expo-google-fonts/instrument-serif';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 
@@ -24,12 +24,10 @@ SplashScreen.preventAutoHideAsync();
 function RootStack() {
   const { status } = useSession();
   const [fontsLoaded, fontError] = useFonts({
-    SpaceGrotesk_500Medium,
-    SpaceGrotesk_700Bold,
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    JetBrainsMono_500Medium,
+    InstrumentSerif_400Regular,
+    Geist_400Regular,
+    Geist_500Medium,
+    GeistMono_400Regular,
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   useEffect(() => {

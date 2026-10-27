@@ -25,7 +25,7 @@ export default function SettingsHub() {
         <ListRow testID="row-wc" icon="connect" title="Connected dApps" subtitle={isReownConfigured() ? 'WalletConnect sessions' : 'WalletConnect not configured'} onPress={() => router.push('/walletconnect')} />
       </Section>
       <Section title="Preferences">
-        <ListRow testID="row-appearance" icon="palette" title="Appearance" value={st.theme === 'system' ? 'System' : st.theme === 'dark' ? 'Dark' : 'Light'} onPress={() => router.push('/settings/appearance')} />
+        <ListRow testID="row-appearance" icon="palette" title="Appearance" value="Vault Dark" onPress={() => router.push('/settings/appearance')} />
         <ListRow testID="row-currency" icon="currency" title="Currency" value="USD" onPress={() => router.push('/settings/currency')} />
       </Section>
       <Section title="App">
