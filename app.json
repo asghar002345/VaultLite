@@ -60,6 +60,14 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "-dontwarn java.awt.**\n-keep class com.sun.jna.** { *; }\n-keep class * implements com.sun.jna.** { *; }"
+          }
+        }
       ]
     ],
     "experiments": {
