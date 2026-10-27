@@ -70,6 +70,9 @@
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
     "jest": "^30.5.2",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.64.1",
+    "pngjs": "^7.0.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -81,7 +84,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "web:skia": "node -e \"require('fs').mkdirSync('public',{recursive:true});require('fs').copyFileSync('node_modules/canvaskit-wasm/bin/full/canvaskit.wasm','public/canvaskit.wasm')\"",
-    "export:web": "npm run web:skia && expo export --platform web"
+    "export:web": "npm run web:skia && expo export --platform web",
+    "visual:compare": "node scripts/visual-compare.mjs"
   },
   "private": true,
   "jest": {

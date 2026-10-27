@@ -1,0 +1,5 @@
+# Maestro workspace config. Run all flows on a device/emulator with a dev or preview build installed:
+#   maestro test .maestro/
+# TESTNET ONLY: every flow uses the public BIP-39 test mnemonic and never signs or broadcasts.
+flows:
+  - "*.yaml"

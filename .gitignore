@@ -45,3 +45,6 @@ example
 # secrets
 .env
 public/canvaskit.wasm
+
+# visual comparison output
+visual-report/

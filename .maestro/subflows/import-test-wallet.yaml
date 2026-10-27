@@ -1,0 +1,33 @@
+# Shared: fresh install → import public test mnemonic → set PIN → land on Home.
+appId: com.vaultlite.demo
+---
+- clearState
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "import"
+    timeout: 15000
+- tapOn:
+    id: "import"
+- tapOn:
+    id: "import-secret"
+- inputText: ${MNEMONIC}
+- hideKeyboard
+- tapOn:
+    id: "import-continue"
+- assertVisible: "Secure your wallet"
+- tapOn:
+    id: "pin"
+- inputText: ${PIN}
+- tapOn:
+    id: "pin-confirm"
+- inputText: ${PIN}
+- hideKeyboard
+- tapOn:
+    id: "create-vault"
+- extendedWaitUntil:
+    visible:
+      id: "home"
+    timeout: 30000   # scrypt KDF can take several seconds on emulators
+- assertVisible:
+    id: "testnet-banner"

@@ -1,0 +1,41 @@
+# Maestro E2E: Send → review screen on Ethereum Sepolia. TESTNET ONLY, NO REAL FUNDS.
+# Stops at review and taps Cancel: it never holds "Hold to send", so nothing is signed or broadcast.
+# The test wallet is unfunded, so the send button is expected to stay disabled anyway.
+appId: com.vaultlite.demo
+name: Send review (no broadcast)
+tags: [send, smoke]
+env:
+  MNEMONIC: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
+  PIN: "135790"
+  # Second account of the same public test mnemonic (not a real person's address).
+  TO: "0x6Fac4D18c912343BF86fa7049364Dd4E424Ab9C0"
+  AMOUNT: "0.001"
+---
+- runFlow: subflows/import-test-wallet.yaml
+- tapOn:
+    id: "qa-send"
+- assertVisible:
+    id: "send"
+- tapOn: "ETH · Ethereum Sepolia"
+- tapOn:
+    id: "to"
+- inputText: ${TO}
+- tapOn:
+    id: "amount"
+- inputText: ${AMOUNT}
+- hideKeyboard
+- tapOn:
+    id: "send-review"
+- extendedWaitUntil:
+    visible:
+      id: "review-amount"
+    timeout: 20000
+- assertVisible:
+    id: "send-review"          # normal (non-danger) review for an EOA recipient
+- assertNotVisible:
+    id: "danger-block"
+- assertVisible: "Ethereum Sepolia"
+- assertVisible: "Hold to send"
+- tapOn: "Cancel"
+- assertVisible:
+    id: "send"
