@@ -41,3 +41,30 @@ describe('chainHealth', () => {
     expect(await chainHealth('solanaDevnet')).toMatchObject({ ok: false, error: 'rate limited' });
   });
 });
+
+import { createQueue, presentationFor } from '@/walletconnect/queue';
+
+describe('WalletConnect request queue', () => {
+  const item = (id: number, kind: string) => ({ request: { id } as never, analysis: { kind } as never, peer: { name: 'd', url: 'u' } });
+  it('routes quick vs complex requests', () => {
+    expect(presentationFor('personal_sign')).toBe('sheet');
+    expect(presentationFor('tron_sign_message')).toBe('sheet');
+    expect(presentationFor('typed_data')).toBe('screen');
+    expect(presentationFor('send_tx')).toBe('screen');
+    expect(presentationFor('tron_sign_tx')).toBe('screen');
+  });
+  it('is FIFO, ignores duplicate ids and notifies subscribers', () => {
+    const q = createQueue();
+    const f = jest.fn();
+    q.subscribe(f);
+    q.push(item(1, 'send_tx'));
+    q.push(item(2, 'personal_sign'));
+    q.push(item(1, 'send_tx'));
+    expect(q.all().map((x) => x.request.id)).toEqual([1, 2]);
+    expect(q.head()?.request.id).toBe(1);
+    q.remove(1);
+    q.remove(99);
+    expect(q.head()?.request.id).toBe(2);
+    expect(f).toHaveBeenCalledTimes(3);
+  });
+});

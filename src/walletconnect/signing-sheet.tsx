@@ -5,10 +5,12 @@ import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { formatUnits } from 'viem';
 
+import { Icon } from '@/components/icon';
 import { Button, Card, Input, T } from '@/components/ui';
 import { HoldToConfirm } from '@/components/wallet';
 import { useReauth } from '@/hooks/use-reauth';
 import { useSecureScreen } from '@/hooks/use-secure-screen';
+import { Layout } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { humanizeError } from '@/lib/errors';
 import { formatAmount } from '@/lib/format';
@@ -21,16 +23,12 @@ import { typedDataTree, type Risk } from './decode';
 import { RPC_ERRORS } from './errors';
 import { executeRequest, previewEvmTxFee } from './execute';
 import { dappTxRecord } from './history';
-import type { Analysis } from './requests';
-import { respondError, respondResult, type SessionRequest } from './walletkit';
+import type { PendingRequest } from './queue';
+import { respondError, respondResult } from './walletkit';
 
-export interface PendingRequest {
-  request: SessionRequest;
-  analysis: Exclude<Analysis, { kind: 'error' }>;
-  peer: { name: string; url: string };
-}
+export type { PendingRequest };
 
-const TITLES: Record<string, string> = {
+export const TITLES: Record<string, string> = {
   personal_sign: 'Sign message',
   typed_data: 'Sign typed data',
   send_tx: 'Send transaction',
@@ -38,21 +36,22 @@ const TITLES: Record<string, string> = {
   tron_sign_tx: 'Sign Tron transaction',
 };
 
-function RiskList({ risks }: { risks: Risk[] }) {
+export function RiskList({ risks }: { risks: Risk[] }) {
   const t = useTheme();
   if (!risks.length) return null;
   return (
     <View style={{ gap: 6 }} testID="risk-list">
       {risks.map((r, i) => (
         <View key={i} accessible accessibilityRole="alert" accessibilityLabel={`${r.level}: ${r.text}`} style={[s.risk, { borderColor: r.level === 'danger' ? t.danger : r.level === 'warning' ? t.warning : t.border }]}>
-          <T variant={r.level === 'danger' ? 'error' : 'body'}>{r.level === 'danger' ? '⛔ ' : r.level === 'warning' ? '⚠️ ' : 'ℹ️ '}{r.text}</T>
+          <Icon name={r.level === 'danger' ? 'danger' : r.level === 'warning' ? 'warning' : 'info'} size="sm" tint={r.level === 'danger' ? t.danger : r.level === 'warning' ? t.warning : t.accent} />
+          <T variant={r.level === 'danger' ? 'error' : 'body'} style={{ flex: 1 }}>{r.text}</T>
         </View>
       ))}
     </View>
   );
 }
 
-function FeePreview({ a }: { a: Extract<PendingRequest['analysis'], { kind: 'send_tx' }> }) {
+export function FeePreview({ a }: { a: Extract<PendingRequest['analysis'], { kind: 'send_tx' }> }) {
   const q = useQuery({ queryKey: ['wcFee', a.chain.key, a.tx], queryFn: () => previewEvmTxFee(a), refetchInterval: 15_000 });
   const sym = a.chain.nativeCurrency.symbol;
   return (
@@ -70,7 +69,7 @@ function FeePreview({ a }: { a: Extract<PendingRequest['analysis'], { kind: 'sen
   );
 }
 
-function Body({ a }: { a: PendingRequest['analysis'] }) {
+export function RequestBody({ a }: { a: PendingRequest['analysis'] }) {
   switch (a.kind) {
     case 'personal_sign':
       return (
@@ -144,8 +143,8 @@ function Body({ a }: { a: PendingRequest['analysis'] }) {
   }
 }
 
-export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose: () => void }) {
-  useSecureScreen('wc-sign');
+/** Approve / reject logic shared by the quick sheet and the full request screen. */
+export function useRequestActions(item: PendingRequest, onClose: () => void) {
   const { withKeys, accounts } = useSession();
   const auth = useReauth();
   const history = useHistory();
@@ -154,11 +153,6 @@ export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose:
   const [busy, setBusy] = useState(false);
   const a = item.analysis;
   const danger = a.risks.some((r) => r.level === 'danger');
-  const m = useMotion();
-  const t = useTheme();
-  useEffect(() => {
-    haptic.medium();
-  }, []);
 
   const reject = async () => {
     haptic.warning();
@@ -171,7 +165,7 @@ export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose:
     if (authErr) return setErr(authErr);
     setBusy(true);
     try {
-      const result = await withKeys((k) => executeRequest(a, k));
+      const result = await withKeys((k) => executeRequest(a as never, k));
       if (a.kind === 'send_tx' && typeof result === 'string' && accounts) {
         await history.add(
           dappTxRecord(a.chain.key as never, a.chain.nativeCurrency.symbol, a.tx, result, accounts.evm.address, tokens, Date.now(), item.peer.name),
@@ -187,19 +181,30 @@ export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose:
       setBusy(false);
     }
   };
+  return { a, auth, err, busy, danger, approve, reject };
+}
+
+export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose: () => void }) {
+  useSecureScreen('wc-sign');
+  const { a, auth, err, busy, danger, approve, reject } = useRequestActions(item, onClose);
+  const m = useMotion();
+  const t = useTheme();
+  useEffect(() => {
+    haptic.medium();
+  }, []);
 
   return (
     <Modal transparent animationType="none" onRequestClose={reject}>
-      <Animated.View entering={m.fade()} style={s.backdrop}>
+      <Animated.View entering={m.fade()} style={[s.backdrop, { backgroundColor: t.scrim }]}>
         <Animated.View entering={m.sheet()}>
-        <Card raised style={{ borderRadius: 32, padding: 20 }}>
+        <Card raised style={{ borderRadius: 32, padding: 20, width: '100%', maxWidth: Layout.maxContent, alignSelf: 'center' }}>
           <View style={[s.grabber, { backgroundColor: t.border }]} />
           <ScrollView style={{ maxHeight: 560 }} contentContainerStyle={{ gap: 10 }}>
             <T variant="title">{TITLES[a.kind]}</T>
             <T variant="caption">{item.peer.name} · {item.peer.url}</T>
             <T variant="caption">Network: {a.chain.name} (testnet)</T>
             <RiskList risks={a.risks} />
-            <Body a={a} />
+            <RequestBody a={a} />
             {a.kind === 'send_tx' && <FeePreview a={a} />}
             {auth.needsPin && <Input testID="wc-pin" value={auth.pin} onChangeText={auth.setPin} placeholder="PIN to approve" secureTextEntry keyboardType="number-pad" maxLength={6} />}
             {err && <T variant="error">{err}</T>}
@@ -218,7 +223,7 @@ export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose:
 }
 
 const s = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end', padding: 12, backgroundColor: '#000A' },
+  backdrop: { flex: 1, justifyContent: 'flex-end', padding: 12, },
   grabber: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 4 },
-  risk: { borderWidth: 1, borderRadius: 8, padding: 8 },
+  risk: { borderWidth: 1, borderRadius: 8, padding: 8, flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
 });

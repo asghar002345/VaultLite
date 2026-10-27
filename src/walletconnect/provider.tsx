@@ -1,14 +1,20 @@
+import { router, usePathname } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Modal, View } from 'react-native';
 
+import { Icon } from '@/components/icon';
+import { Notice } from '@/components/states';
 import { Button, Card, T } from '@/components/ui';
 import { CHAIN_LIST } from '@/config/chains';
 import { isReownConfigured } from '@/config/env';
+import { Layout } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/vault/session';
 
 import { createRequestDeduper } from './dedupe';
+import { presentationFor, requestQueue, useRequestQueue } from './queue';
 import { analyzeRequest, verifyRisks } from './requests';
-import { SigningSheet, type PendingRequest } from './signing-sheet';
+import { SigningSheet } from './signing-sheet';
 import {
   approveProposal,
   emitChainChanged,
@@ -23,13 +29,20 @@ import {
   type SessionRequest,
 } from './walletkit';
 
-/** Mount while unlocked: inits WalletKit, handles proposals and routes requests to the signing sheet. */
+/**
+ * Mount while unlocked: inits WalletKit, handles proposals and feeds the request queue.
+ * Quick requests (plain messages) open the signing sheet; complex ones (typed data, transactions, Tron tx)
+ * open the full /walletconnect/request screen.
+ */
 export function WalletConnectHost() {
   const { accounts } = useSession();
+  const t = useTheme();
+  const pathname = usePathname();
   const [proposal, setProposal] = useState<Proposal | null>(null);
-  const [queue, setQueue] = useState<PendingRequest[]>([]);
+  const queue = useRequestQueue();
   const [error, setError] = useState<string | null>(null);
   const dedupe = useRef(createRequestDeduper());
+  const routed = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isReownConfigured() || !accounts) return;
@@ -55,12 +68,21 @@ export function WalletConnectHost() {
         return emitChainChanged(r.topic, a.target.caip2, a.target.chainId!).catch(() => {});
       }
       const peer = { name: session?.peer.metadata.name ?? 'Unknown dApp', url: session?.peer.metadata.url ?? '' };
-      setQueue((q) => [...q, { request: r, analysis: a, peer }]);
+      requestQueue.push({ request: r, analysis: a, peer });
     };
     return subscribe({ onProposal: setProposal, onRequest: (r) => void onRequest(r) });
   }, [accounts]);
 
-  if (queue[0]) return <SigningSheet key={queue[0].request.id} item={queue[0]} onClose={() => setQueue((q) => q.slice(1))} />;
+  const head = queue[0];
+  const headIsScreen = head && presentationFor(head.analysis.kind) === 'screen';
+  useEffect(() => {
+    if (head && headIsScreen && routed.current !== head.request.id && pathname !== '/walletconnect/request') {
+      routed.current = head.request.id;
+      router.push({ pathname: '/walletconnect/request', params: { id: String(head.request.id) } });
+    }
+  }, [head, headIsScreen, pathname]);
+
+  if (head && !headIsScreen) return <SigningSheet key={head.request.id} item={head} onClose={() => requestQueue.remove(head.request.id)} />;
   if (!proposal || !accounts) return null;
   const meta = proposal.params.proposer.metadata;
   const bad = unsupportedChains(proposal.params, CHAIN_LIST.filter((c) => c.family !== 'solana').map((c) => c.caip2));
@@ -71,15 +93,22 @@ export function WalletConnectHost() {
   };
   return (
     <Modal transparent animationType="slide" onRequestClose={() => rejectProposal(proposal).finally(close)}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', padding: 16, backgroundColor: '#0008' }}>
-        <Card>
-          <T variant="title">Connect to {meta.name}?</T>
+      <View style={{ flex: 1, justifyContent: 'flex-end', padding: 16, backgroundColor: t.scrim }}>
+        <Card raised style={{ width: '100%', maxWidth: Layout.maxContent, alignSelf: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <Icon name="connect" color="primary" size="lg" />
+            <T variant="title" style={{ flex: 1 }}>Connect to {meta.name}?</T>
+          </View>
           <T variant="caption">{meta.url}</T>
-          {risks.map((r, i) => <T key={i} variant={r.level === 'danger' ? 'error' : 'caption'}>{r.level === 'danger' ? '⛔' : '⚠️'} {r.text}</T>)}
-          {bad.length > 0 && <T variant="error">Requests unsupported (non-testnet?) chains: {bad.join(', ')}</T>}
-          {error && <T variant="error">{error}</T>}
+          {risks.map((r, i) => (
+            <Notice key={i} tone={r.level === 'danger' ? 'danger' : r.level === 'warning' ? 'warning' : 'info'}>{r.text}</Notice>
+          ))}
+          {bad.length > 0 && <Notice tone="danger">Requests unsupported (non-testnet?) chains: {bad.join(', ')}</Notice>}
+          {error && <Notice tone="danger">{error}</Notice>}
           <Button
+            testID="wc-approve-session"
             title="Approve"
+            icon="check"
             disabled={bad.length > 0 || !!proposal.verifyContext?.verified?.isScam}
             onPress={() =>
               approveProposal(proposal, accounts.evm.address, accounts.tron.address)
@@ -87,7 +116,7 @@ export function WalletConnectHost() {
                 .catch((e) => setError(e.message))
             }
           />
-          <Button variant="secondary" title="Reject" onPress={() => rejectProposal(proposal).finally(close)} />
+          <Button variant="secondary" title="Reject" icon="close" onPress={() => rejectProposal(proposal).finally(close)} />
         </Card>
       </View>
     </Modal>

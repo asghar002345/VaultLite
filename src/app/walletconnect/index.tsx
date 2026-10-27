@@ -1,52 +1,40 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
 
-import { Button, Card, Input, Screen, T, TestnetBanner } from '@/components/ui';
-import { humanizeError } from '@/lib/errors';
-import { disconnect, getWalletKit, listSessions, pair, subscribe } from '@/walletconnect/walletkit';
+import { EmptyState, ErrorState, ListRow, LoadingState, Notice, Section } from '@/components/states';
+import { Button, Screen, TestnetBanner } from '@/components/ui';
+import { isReownConfigured } from '@/config/env';
+import { useSessions } from '@/walletconnect/use-sessions';
 
-type Session = Awaited<ReturnType<typeof listSessions>>[number];
-
-export default function WalletConnectScreen() {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [uri, setUri] = useState('');
-  const [msg, setMsg] = useState<string | null>(null);
-  const refresh = useCallback(() => void listSessions().then(setSessions), []);
-
-  useEffect(() => {
-    getWalletKit().then(refresh).catch((e) => setMsg(humanizeError(e)));
-    return subscribe({ onSessionsChanged: refresh });
-  }, [refresh]);
-
+export default function WalletConnectSessions() {
+  const q = useSessions();
+  if (!isReownConfigured())
+    return (
+      <Screen testID="wc-sessions">
+        <EmptyState icon="ban" title="WalletConnect not configured" body="Set EXPO_PUBLIC_REOWN_PROJECT_ID in .env (see .env.example) and rebuild to connect dApps." />
+      </Screen>
+    );
   return (
-    <Screen>
+    <Screen testID="wc-sessions">
       <TestnetBanner />
-      <Button title="Scan QR code" onPress={() => router.push({ pathname: '/scan', params: { mode: 'wc' } })} />
-      <T variant="caption">…or paste a wc: URI from a dApp</T>
-      <Input testID="wc-uri" value={uri} onChangeText={setUri} placeholder="wc:…" />
-      <Button
-        title="Connect"
-        disabled={!uri.startsWith('wc:')}
-        onPress={() =>
-          pair(uri)
-            .then(() => {
-              setUri('');
-              setMsg('Waiting for proposal…');
-            })
-            .catch((e) => setMsg(humanizeError(e)))
-        }
-      />
-      {msg && <T variant="caption">{msg}</T>}
-      <T variant="title">Active sessions</T>
-      {sessions.length === 0 && <T variant="caption">None</T>}
-      {sessions.map((s) => (
-        <Card key={s.topic}>
-          <T style={{ fontWeight: '600' }}>{s.peer.metadata.name}</T>
-          <T variant="caption">{s.peer.metadata.url}</T>
-          <T variant="caption">{Object.values(s.namespaces).flatMap((n) => n.chains ?? []).join(', ')}</T>
-          <Button variant="danger" title="Disconnect" onPress={() => disconnect(s.topic).catch((e) => setMsg(humanizeError(e)))} />
-        </Card>
-      ))}
+      <Button testID="wc-connect" icon="plus" title="Connect a dApp" onPress={() => router.push('/walletconnect/pair')} />
+      <Section title="Active sessions">
+        {q.isPending && <LoadingState rows={2} label="Loading sessions" />}
+        {q.isError && <ErrorState title="Couldn't start WalletConnect" error={q.error} onRetry={() => q.refetch()} />}
+        {q.isSuccess && q.data.length === 0 && (
+          <EmptyState icon="connect" title="No connected dApps" body="Scan a WalletConnect QR code or paste a wc: link to connect." action={{ label: 'Connect a dApp', onPress: () => router.push('/walletconnect/pair') }} />
+        )}
+        {q.data?.map((s) => (
+          <ListRow
+            key={s.topic}
+            testID={`wc-session-${s.topic.slice(0, 8)}`}
+            icon="connect"
+            title={s.peer.metadata.name || 'Unnamed dApp'}
+            subtitle={`${s.peer.metadata.url} · ${Object.values(s.namespaces).flatMap((n) => n.chains ?? []).length} chain(s)`}
+            onPress={() => router.push({ pathname: '/walletconnect/[topic]', params: { topic: s.topic } })}
+          />
+        ))}
+      </Section>
+      <Notice>Plain messages open a quick sheet; typed data and transactions open a full review screen.</Notice>
     </Screen>
   );
 }

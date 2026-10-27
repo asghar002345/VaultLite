@@ -66,7 +66,10 @@ function RootStack() {
         <Stack.Screen name="send/index" options={{ headerShown: true, title: 'Send' }} />
         <Stack.Screen name="send/review" options={{ headerShown: true, title: 'Review' }} />
         <Stack.Screen name="send/status/[hash]" options={{ headerShown: true, title: 'Status', headerBackVisible: false }} />
-        <Stack.Screen name="walletconnect/index" options={{ headerShown: true, title: 'WalletConnect' }} />
+        <Stack.Screen name="walletconnect/index" options={{ headerShown: true, title: 'Connected dApps' }} />
+        <Stack.Screen name="walletconnect/pair" options={{ headerShown: true, title: 'Connect a dApp' }} />
+        <Stack.Screen name="walletconnect/[topic]" options={{ headerShown: true, title: 'Session' }} />
+        <Stack.Screen name="walletconnect/request" options={{ headerShown: true, title: 'Request', gestureEnabled: false }} />
         <Stack.Screen name="scan" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="tokens/add" options={{ headerShown: true, title: 'Add token' }} />
         <Stack.Screen name="settings/networks" options={{ headerShown: true, title: 'Networks' }} />
