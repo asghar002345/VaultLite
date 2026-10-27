@@ -84,5 +84,10 @@
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@noble/.*|@scure/.*|viem|ox|abitype)"
     ]
+  },
+  "overrides": {
+    "@walletconnect/keyvaluestorage": {
+      "@react-native-async-storage/async-storage": "$@react-native-async-storage/async-storage"
+    }
   }
 }
