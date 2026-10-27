@@ -7,12 +7,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Aurora } from '@/components/fx/skia';
 import { AnimatedNumber } from '@/components/fx/animated-number';
+import { Icon } from '@/components/icon';
+import { gridColumns, useBreakpoint, useTabInset } from '@/components/layout';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { TxRow } from '@/components/tx-row';
 import { Button, T, TestnetBanner, usePressScale } from '@/components/ui';
-import { SegmentedPills, Skeleton, TokenOrb } from '@/components/wallet';
+import { SegmentedPills, TokenOrb } from '@/components/wallet';
 import { CHAINS, type ChainKey } from '@/config/chains';
 import { isReownConfigured } from '@/config/env';
-import { Fonts, Radius, Spacing, Tabular } from '@/constants/theme';
+import { Fonts, Layout, Radius, Spacing, Tabular } from '@/constants/theme';
 import { useBalances } from '@/hooks/use-balances';
 import { useTheme } from '@/hooks/use-theme';
 import { stableTotal } from '@/lib/amount';
@@ -20,10 +23,11 @@ import { humanizeError } from '@/lib/errors';
 import { formatAmount } from '@/lib/format';
 import { haptic, useMotion } from '@/motion';
 import { useHistory } from '@/store/history';
+import { useSettings } from '@/store/settings';
 import { useSession } from '@/vault/session';
 
 type Filter = 'all' | ChainKey;
-const FILTERS: Filter[] = ['all', 'sepolia', 'polygonAmoy', 'bscTestnet', 'baseSepolia', 'tronNile', 'solanaDevnet'];
+const ALL_FILTERS: Filter[] = ['all', 'sepolia', 'polygonAmoy', 'bscTestnet', 'baseSepolia', 'tronNile', 'solanaDevnet'];
 const shortName = (f: Filter) => (f === 'all' ? 'All' : CHAINS[f].name.replace(' Testnet', '').replace(' Sepolia', ' Sep.'));
 
 type Row = NonNullable<ReturnType<typeof useBalances>['data']>[number];
@@ -68,17 +72,29 @@ export default function Home() {
   const q = useBalances();
   const history = useHistory(accounts ? { evm: accounts.evm.address, tron: accounts.tron.address } : undefined);
   const qc = useQueryClient();
+  const { hiddenChains } = useSettings();
+  const bp = useBreakpoint();
+  const tabInset = useTabInset();
   const [filter, setFilter] = useState<Filter>('all');
-  const rows = useMemo(() => (q.data ?? []).filter((x) => filter === 'all' || x.chain === filter), [q.data, filter]);
+  const filters = ALL_FILTERS.filter((f) => f === 'all' || !hiddenChains.includes(f));
+  const active: Filter = filters.includes(filter) ? filter : 'all';
+  const visible = useMemo(() => (q.data ?? []).filter((x) => !hiddenChains.includes(x.chain)), [q.data, hiddenChains]);
+  const rows = useMemo(() => visible.filter((x) => active === 'all' || x.chain === active), [visible, active]);
   if (!accounts) return null;
-  const total = stableTotal(q.data ?? []);
+  const total = stableTotal(visible);
+  const contentW = Math.min(bp.width, Layout.maxContentWide);
+  const cols = gridColumns(contentW);
 
   return (
     <SafeAreaView style={[s.flex, { backgroundColor: t.background }]} edges={['top']}>
       <FlatList
-        data={q.isPending ? [] : rows}
+        key={`cols-${cols}`}
+        testID="home"
+        numColumns={cols}
+        columnWrapperStyle={cols > 1 ? { gap: Spacing.sm } : undefined}
+        data={q.isPending || q.isError ? [] : rows}
         keyExtractor={(x) => `${x.chain}:${x.address}`}
-        contentContainerStyle={s.pad}
+        contentContainerStyle={[s.pad, { paddingBottom: tabInset, width: '100%', maxWidth: Layout.maxContentWide, alignSelf: 'center' }, bp.compact && { padding: Spacing.md }]}
         refreshControl={
           <RefreshControl
             tintColor={t.primary}
@@ -96,7 +112,14 @@ export default function Home() {
               <T style={{ fontFamily: Fonts.display, fontSize: 20, letterSpacing: -0.5 }}>
                 vault<T style={{ fontFamily: Fonts.display, fontSize: 20, color: t.primary }}>lite</T>
               </T>
-              <T variant="caption">Testnets</T>
+              <View style={s.row0}>
+                <Pressable testID="home-scan" accessibilityRole="button" accessibilityLabel="Scan QR code" hitSlop={10} onPress={() => router.push('/scan')}>
+                  <Icon name="scan" />
+                </Pressable>
+                <Pressable testID="home-settings" accessibilityRole="button" accessibilityLabel="Settings" hitSlop={10} onPress={() => router.push('/settings')}>
+                  <Icon name="settings" />
+                </Pressable>
+              </View>
             </View>
             <TestnetBanner />
             <View style={[s.hero, { borderColor: t.border, backgroundColor: t.surface }]}>
@@ -121,7 +144,7 @@ export default function Home() {
                 </View>
               </View>
             </View>
-            <SegmentedPills items={FILTERS.map((f) => ({ key: f, label: shortName(f) }))} value={filter} onChange={setFilter} testID="chain-filter" />
+            <SegmentedPills items={filters.map((f) => ({ key: f, label: shortName(f) }))} value={active} onChange={setFilter} testID="chain-filter" />
             {history.pending.length > 0 && (
               <View testID="pending-list">
                 <T variant="caption">PENDING</T>
@@ -130,17 +153,26 @@ export default function Home() {
                 ))}
               </View>
             )}
-            {q.isPending && [0, 1, 2, 3].map((i) => <Skeleton key={i} height={68} />)}
-            {q.isError && <T variant="error">Couldn&apos;t load balances: {humanizeError(q.error)}</T>}
+            {q.isPending && <LoadingState rows={4} height={68} label="Loading balances" />}
+            {q.isError && <ErrorState title="Couldn't load balances" error={q.error} onRetry={() => q.refetch()} />}
           </View>
         }
-        renderItem={({ item, index }) => <TokenRow item={item} index={index} />}
+        renderItem={({ item, index }) => (
+          <View style={cols > 1 ? s.flex : undefined}>
+            <TokenRow item={item} index={index} />
+          </View>
+        )}
+        ListEmptyComponent={
+          q.isSuccess ? (
+            <EmptyState icon="wallet" title="No tokens here" body="No balances on this network yet. Use a faucet or import a custom token." action={{ label: 'Add custom token', onPress: () => router.push('/tokens/add') }} />
+          ) : undefined
+        }
         ListFooterComponent={
           <View style={{ gap: Spacing.sm, marginTop: Spacing.lg }}>
-            <Button variant="ghost" title="Add custom token" onPress={() => router.push('/tokens/add')} />
-            <Button variant="ghost" title="WalletConnect sessions" disabled={!isReownConfigured()} onPress={() => router.push('/walletconnect')} />
+            <Button variant="ghost" icon="plus" title="Add custom token" onPress={() => router.push('/tokens/add')} />
+            <Button variant="ghost" icon="connect" title="Connected dApps" disabled={!isReownConfigured()} onPress={() => router.push('/walletconnect')} />
             {!isReownConfigured() && <T variant="caption">WalletConnect disabled: set EXPO_PUBLIC_REOWN_PROJECT_ID (see .env.example).</T>}
-            <Button variant="ghost" title="Lock now" onPress={lock} />
+            <Button variant="ghost" icon="lock" title="Lock now" onPress={lock} />
           </View>
         }
       />
@@ -150,7 +182,8 @@ export default function Home() {
 
 const s = StyleSheet.create({
   flex: { flex: 1 },
-  pad: { padding: Spacing.lg, gap: Spacing.sm, paddingBottom: 120 },
+  pad: { padding: Spacing.lg, gap: Spacing.sm },
+  row0: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   row: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   hero: { borderRadius: Radius.xl, borderWidth: 1, padding: Spacing.lg, gap: 6, overflow: 'hidden', minHeight: 230 },

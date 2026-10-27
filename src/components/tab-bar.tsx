@@ -1,20 +1,23 @@
 import type { BottomTabBarProps } from 'expo-router/build/layouts/Tabs';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Icon, type IconName } from '@/components/icon';
 import { Fonts, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { haptic, Springs, useMotion } from '@/motion';
 
-const GLYPH: Record<string, string> = { home: '◆', activity: '≋', escrow: '⧉' };
+const ICON: Record<string, IconName> = { home: 'home', activity: 'activity', escrow: 'escrow', settings: 'settings' };
 
 /** Floating tab bar with a spring-sliding pill indicator. */
 export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps) {
   const t = useTheme();
   const { reduced } = useMotion();
   const insets = useSafeAreaInsets();
+  const { width: winW, height: winH } = useWindowDimensions();
+  const landscape = winW > winH && winH < 500;
   const [w, setW] = useState(0);
   const n = state.routes.length;
   const seg = w / n;
@@ -25,8 +28,8 @@ export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps)
     x.set(reduced ? state.index * seg : withSpring(state.index * seg, Springs.gentle));
   }, [state.index, seg, reduced, x]);
   return (
-    <View style={[s.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]} pointerEvents="box-none">
-      <View style={[s.bar, { backgroundColor: t.surface, borderColor: t.border }]} onLayout={(e) => setW(e.nativeEvent.layout.width - 12)}>
+    <View style={[s.wrap, { paddingBottom: Math.max(insets.bottom, landscape ? 6 : 12), alignItems: 'center' }]} pointerEvents="box-none">
+      <View style={[s.bar, { width: '100%', maxWidth: 560, backgroundColor: t.surface, borderColor: t.border }]} onLayout={(e) => setW(e.nativeEvent.layout.width - 12)}>
         {w > 0 && <Animated.View style={[s.pill, { width: seg, backgroundColor: t.surfaceRaised, borderColor: t.accent }, indicator]} />}
         {state.routes.map((route, i) => {
           const focused = state.index === i;
@@ -45,8 +48,8 @@ export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps)
                   navigateToTab(route.key);
                 }
               }}
-              style={s.item}>
-              <Text style={{ color: focused ? t.primary : t.textSecondary, fontSize: 16 }}>{GLYPH[route.name] ?? '•'}</Text>
+              style={[s.item, landscape && { flexDirection: 'row', paddingVertical: 4, gap: 6, justifyContent: 'center' }]}>
+              <Icon name={ICON[route.name] ?? 'info'} size="sm" tint={focused ? t.primary : t.textSecondary} />
               <Text style={{ color: focused ? t.text : t.textSecondary, fontFamily: focused ? Fonts.uiSemi : Fonts.uiMedium, fontSize: 12 }}>{label}</Text>
             </Pressable>
           );

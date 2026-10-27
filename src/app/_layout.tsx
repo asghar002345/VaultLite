@@ -5,7 +5,9 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-goog
 import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { useFonts } from 'expo-font';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+import { loadSettings } from '@/store/settings';
 
 import { Colors, Fonts } from '@/constants/theme';
 import { useIsDark } from '@/hooks/use-theme';
@@ -29,7 +31,11 @@ function RootStack() {
     Inter_600SemiBold,
     JetBrainsMono_500Medium,
   });
-  const ready = status !== 'loading' && (fontsLoaded || !!fontError);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  useEffect(() => {
+    loadSettings().finally(() => setSettingsLoaded(true));
+  }, []);
+  const ready = settingsLoaded && status !== 'loading' && (fontsLoaded || !!fontError);
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
   }, [ready]);
@@ -63,6 +69,13 @@ function RootStack() {
         <Stack.Screen name="walletconnect/index" options={{ headerShown: true, title: 'WalletConnect' }} />
         <Stack.Screen name="scan" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="tokens/add" options={{ headerShown: true, title: 'Add token' }} />
+        <Stack.Screen name="settings/networks" options={{ headerShown: true, title: 'Networks' }} />
+        <Stack.Screen name="settings/appearance" options={{ headerShown: true, title: 'Appearance' }} />
+        <Stack.Screen name="settings/currency" options={{ headerShown: true, title: 'Currency' }} />
+        <Stack.Screen name="settings/about" options={{ headerShown: true, title: 'About' }} />
+        <Stack.Screen name="settings/security/index" options={{ headerShown: true, title: 'Security' }} />
+        <Stack.Screen name="settings/security/pin" options={{ headerShown: true, title: 'Change PIN' }} />
+        <Stack.Screen name="settings/security/reveal" options={{ headerShown: true, title: 'Recovery phrase' }} />
       </Stack.Protected>
     </Stack>
     </>

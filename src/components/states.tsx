@@ -147,6 +147,7 @@ export function ConfirmSheet({
   title,
   body,
   confirmLabel,
+  confirmDisabled,
   danger,
   busy,
   error,
@@ -158,6 +159,7 @@ export function ConfirmSheet({
   title: string;
   body?: string;
   confirmLabel: string;
+  confirmDisabled?: boolean;
   danger?: boolean;
   busy?: boolean;
   error?: string | null;
@@ -182,7 +184,7 @@ export function ConfirmSheet({
             {body ? <T variant="caption" style={{ fontSize: 14 }}>{body}</T> : null}
             {children}
             {error ? <Notice tone="danger">{error}</Notice> : null}
-            <Button testID="confirm-sheet-ok" variant={danger ? 'danger' : 'primary'} title={busy ? 'Working…' : confirmLabel} disabled={busy} onPress={onConfirm} />
+            <Button testID="confirm-sheet-ok" variant={danger ? 'danger' : 'primary'} title={busy ? 'Working…' : confirmLabel} disabled={busy || confirmDisabled} onPress={onConfirm} />
             <Button variant="ghost" title="Cancel" disabled={busy} onPress={onCancel} />
           </Card>
         </Animated.View>
