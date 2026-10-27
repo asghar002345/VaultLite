@@ -71,6 +71,6 @@ export const Layout = {
   maxContent: 560,
   maxContentWide: 960,
   breakpoints: { compact: 360, regular: 600, medium: 900 },
-  tabBarHeight: 72,
+  tabBarHeight: 64,
   margin: 24,
 } as const;
