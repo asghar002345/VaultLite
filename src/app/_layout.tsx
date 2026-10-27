@@ -60,7 +60,8 @@ function RootStack() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="token/[chain]/[address]" options={{ headerShown: true, title: 'Token' }} />
         <Stack.Screen name="escrow/create" options={{ headerShown: true, title: 'New escrow' }} />
-        <Stack.Screen name="escrow/[id]" options={{ headerShown: true, title: 'Escrow' }} />
+        <Stack.Screen name="escrow/[id]/index" options={{ headerShown: true, title: 'Escrow' }} />
+        <Stack.Screen name="escrow/[id]/action" options={{ headerShown: true, title: 'Escrow action' }} />
         <Stack.Screen name="escrow/withdraw" options={{ headerShown: true, title: 'Withdraw' }} />
         <Stack.Screen name="receive" options={{ headerShown: true, title: 'Receive' }} />
         <Stack.Screen name="send/index" options={{ headerShown: true, title: 'Send' }} />
