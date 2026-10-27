@@ -37,6 +37,6 @@ export function TxRow({ tx }: { tx: TxRecord }) {
 }
 
 const s = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 4, padding: 12, borderRadius: Radius.lg, borderWidth: 1, marginBottom: 8 },
-  badge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: 72, paddingHorizontal: 20, paddingVertical: 12, borderRadius: Radius.lg, borderWidth: 1 },
+  badge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 });

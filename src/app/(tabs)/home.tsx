@@ -119,7 +119,7 @@ export default function Home() {
 
         {history.pending.length > 0 && (
           <Section title="Pending">
-            <View testID="pending-list">
+            <View testID="pending-list" style={{ gap: Spacing.sm }}>
               {history.pending.map((tx) => (
                 <TxRow key={tx.hash} tx={tx} />
               ))}

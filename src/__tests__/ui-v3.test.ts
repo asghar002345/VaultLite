@@ -36,3 +36,21 @@ describe('recipientRisk', () => {
     expect(recipientRisk('0x1', null, undefined)).toBeNull();
   });
 });
+
+describe('activity grouping', () => {
+  const { groupByDay, matchesFilter } = jest.requireActual('@/lib/activity-groups') as typeof import('@/lib/activity-groups');
+  it('groups newest-first rows by day with Today/Yesterday labels', () => {
+    const now = new Date(2026, 9, 27, 15, 0).getTime();
+    const rows = [now - 1000, now - 3_600_000, now - 86_400_000, new Date(2026, 9, 19, 12).getTime()].map((at) => ({ at }));
+    const g = groupByDay(rows, now);
+    expect(g.map((x) => [x.label, x.items.length])).toEqual([['Today', 2], ['Yesterday', 1], ['Mon, Oct 19', 1]]);
+  });
+  it('filters by direction and pending', () => {
+    const out = { at: 0, direction: 'out' as const, pending: true };
+    const inn = { at: 0, direction: 'in' as const, pending: false };
+    expect([out, inn].filter((r) => matchesFilter(r, 'sent'))).toEqual([out]);
+    expect([out, inn].filter((r) => matchesFilter(r, 'received'))).toEqual([inn]);
+    expect([out, inn].filter((r) => matchesFilter(r, 'pending'))).toEqual([out]);
+    expect([out, inn].filter((r) => matchesFilter(r, 'all'))).toHaveLength(2);
+  });
+});
