@@ -19,7 +19,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.vaultlite.demo"
+      "package": "com.vaultlite.demo",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "output": "static",
@@ -62,7 +67,16 @@
       "reactCompiler": true
     },
     "extra": {
-      "reownProjectId": "REPLACE_ME"
-    }
+      "reownProjectId": "REPLACE_ME",
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "886673c6-ae9d-4c12-bc61-b3dd6308cab4"
+      }
+    },
+    "owner": "hammad_asghar"
   }
 }
