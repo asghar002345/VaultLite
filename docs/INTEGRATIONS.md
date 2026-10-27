@@ -92,3 +92,19 @@ EVM: viem `estimateGas` (+20 %), EIP-1559 tiers in `src/lib/fees.ts`. Tron: Tron
 ## WalletConnect — `src/walletconnect/`
 Polyfills: `index.js` → `src/polyfills.ts`, with `@walletconnect/react-native-compat` first. Packages: `@reown/walletkit`, `@walletconnect/core`, `@walletconnect/utils`, peers `@react-native-async-storage/async-storage`, `@react-native-community/netinfo`, `expo-application`. Needs a dev build (native modules — not Expo Go).
 `walletkit.ts` inits WalletKit with `env.REOWN_PROJECT_ID`, handles `session_proposal` (approve with testnet-only `supportedNamespaces`, reject), lists/disconnects sessions, and routes `session_request` through `analyzeRequest` → signing sheet (see Day 4–5). Tron Nile CAIP-2 `tron:0xcd8690dc` verified (Reown Tron RPC docs + Nile genesis blockID suffix).
+
+## MilestoneEscrow (Base Sepolia 84532)
+
+- Address: `0xD861488f2ba02df4047DDE41EFeCdCEd1FD6E528` (deploy block 50793329, fee 0), verified on Sourcify:
+  https://repo.sourcify.dev/84532/0xD861488f2ba02df4047DDE41EFeCdCEd1FD6E528
+- Repo ABI compared with the Sourcify ABI: all 80 entries identical. All function selectors are present in the 13,647-byte runtime code.
+  Live reads return `nextEscrowId=1`, `feeBps=0` and the EIP-712 domain `MilestoneEscrow`/`1`/84532.
+- `ViemEscrowService` (`src/modules/escrow/EscrowService.viem.ts`): the contract has a `getEscrow` / `getMilestones` / `withdrawable` read path.
+  `listForAccount` uses a multicall scan over the newest ids. Every write runs simulate → sign → wait.
+  Every signature first goes through biometric or PIN re-auth (`useEscrow`).
+  ERC-20 funding asks for the allowance and sends approve when needed, then fund; one auth prompt covers both.
+- approveBySig: the EIP-712 `ApproveMilestone(uint256 escrowId,uint256 index,uint256 amount,uint256 sigDeadline)` hash
+  matches the on-chain `approvalDigest`, and a unit test pins that vector.
+- Screens: `/escrow` (lists mine and shows the withdrawable balance), `/escrow/create`, `/escrow/[id]` (fund/submit/approve/claim/dispute/cancel/refund),
+  and `/escrow/withdraw`.
+- Live write tests have not run: there are no faucet funds on this box.

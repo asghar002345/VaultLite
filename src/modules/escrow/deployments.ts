@@ -16,7 +16,9 @@ export interface EscrowDeployment {
 export const ESCROW_DEPLOYMENTS: Partial<Record<ChainKey, EscrowDeployment>> = {
   baseSepolia: {
     chain: 'baseSepolia', // chainId 84532
-    address: null, // TODO: set once MilestoneEscrow is deployed (or read EXPO_PUBLIC_ESCROW_ADDRESS_BASE_SEPOLIA)
+    // Verified: https://repo.sourcify.dev/84532/0xD861488f2ba02df4047DDE41EFeCdCEd1FD6E528 (fee 0)
+    address: '0xD861488f2ba02df4047DDE41EFeCdCEd1FD6E528',
+    deployBlock: 50793329n,
     abi: milestoneEscrowAbi,
     eip712: { name: 'MilestoneEscrow', version: '1' },
   },

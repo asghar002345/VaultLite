@@ -91,6 +91,7 @@ export default function Home() {
         )}
         ListFooterComponent={
           <View style={{ gap: Spacing.md, marginTop: Spacing.lg }}>
+            <Button variant="secondary" title="Milestone escrow" testID="home-escrow" onPress={() => router.push('/escrow')} />
             <Button variant="secondary" title="Add custom token" onPress={() => router.push('/tokens/add')} />
             <Button variant="secondary" title={`Activity${history.list.length ? ` (${history.list.length})` : ''}`} onPress={() => router.push('/activity')} />
             <Button variant="secondary" title="WalletConnect sessions" disabled={!isReownConfigured()} onPress={() => router.push('/walletconnect')} />
