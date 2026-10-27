@@ -113,7 +113,7 @@ export default function Home() {
                 vault<T style={{ fontFamily: Fonts.display, fontSize: 20, color: t.primary }}>lite</T>
               </T>
               <View style={s.row0}>
-                <Pressable testID="home-scan" accessibilityRole="button" accessibilityLabel="Scan QR code" hitSlop={10} onPress={() => router.push('/scan')}>
+                <Pressable testID="home-scan" accessibilityRole="button" accessibilityLabel="Scan QR code" hitSlop={10} onPress={() => router.push({ pathname: '/scan', params: { mode: 'any' } })}>
                   <Icon name="scan" />
                 </Pressable>
                 <Pressable testID="home-settings" accessibilityRole="button" accessibilityLabel="Settings" hitSlop={10} onPress={() => router.push('/settings')}>

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 
 import Animated from 'react-native-reanimated';
 
 import { Aurora } from '@/components/fx/skia';
+import { ConfirmSheet } from '@/components/states';
 import { Button, Input, Screen, T } from '@/components/ui';
 import { PinDots } from '@/components/wallet';
 import { Spacing } from '@/constants/theme';
@@ -18,6 +19,7 @@ export default function Lock() {
   const { unlockWithPin, unlockWithBiometrics, reset } = useSession();
   const [pin, setPin] = useState('');
   const [bio, setBio] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(0);
@@ -78,16 +80,22 @@ export default function Lock() {
       />
       {error && <T variant="error">{error}</T>}
       <Button testID="unlock" title={busy ? 'Unlocking…' : 'Unlock'} disabled={busy || pin.length !== 6} onPress={submit} />
-      {bio && <Button variant="secondary" title="Use biometrics" onPress={tryBio} />}
+      {bio && <Button variant="secondary" icon="biometrics" title="Use biometrics" onPress={tryBio} />}
       <Button
-        variant="danger"
         title="Reset wallet"
-        onPress={() =>
-          Alert.alert('Reset wallet?', 'This erases the encrypted secret from this device. You need your recovery phrase to restore.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Erase', style: 'destructive', onPress: () => reset() },
-          ])
-        }
+        variant="ghost"
+        icon="trash"
+        testID="lock-reset"
+        onPress={() => setConfirmReset(true)}
+      />
+      <ConfirmSheet
+        visible={confirmReset}
+        danger
+        title="Reset wallet?"
+        body="This erases the encrypted secret from this device. You need your recovery phrase to restore."
+        confirmLabel="Erase"
+        onCancel={() => setConfirmReset(false)}
+        onConfirm={() => { setConfirmReset(false); void reset(); }}
       />
     </Screen>
   );
