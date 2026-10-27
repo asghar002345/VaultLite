@@ -3,13 +3,14 @@ import { View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { Aurora } from '@/components/fx/skia';
-import { Skeleton, TokenOrb } from '@/components/wallet';
+import { TokenOrb } from '@/components/wallet';
 import { Fonts, Radius, Tabular } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { haptic, useMotion } from '@/motion';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 
+import { ConfirmSheet, EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button, Card, Screen, T } from '@/components/ui';
 import { getChain, type ChainKey } from '@/config/chains';
 import { NATIVE } from '@/config/tokens';
@@ -21,12 +22,13 @@ export default function TokenDetail() {
   const { chain, address } = useLocalSearchParams<{ chain: string; address: string }>();
   const { tokens } = useAllTokens();
   const { remove } = useCustomTokenMutations();
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const token = findIn(tokens, chain, address);
   const q = useBalances();
   const t = useTheme();
   const m = useMotion();
   useEffect(() => haptic.light(), []);
-  if (!token) return <Screen><T variant="error">Unknown token</T></Screen>;
+  if (!token) return <Screen><EmptyState icon="wallet" title="Unknown token" body="This token isn't in your list. Import it by contract address." action={{ label: 'Add custom token', onPress: () => router.push('/tokens/add') }} /></Screen>;
   const c = getChain(token.chain as ChainKey);
   const bal = q.data?.find((x) => x.chain === token.chain && x.address === token.address)?.balance;
   const explorer =
@@ -44,7 +46,9 @@ export default function TokenDetail() {
           <T variant="caption">{c.name}</T>
         </Animated.View>
         {q.isPending ? (
-          <Skeleton height={40} />
+          <LoadingState rows={1} height={40} label="Loading balance" />
+        ) : q.isError ? (
+          <ErrorState title="Couldn't load balance" error={q.error} onRetry={() => q.refetch()} />
         ) : (
           <Animated.View entering={m.enter(2)}>
             <T style={[{ fontFamily: Fonts.display, fontSize: 36, letterSpacing: -1, color: t.text }, Tabular]}>
@@ -59,11 +63,22 @@ export default function TokenDetail() {
         {token.source && <T variant="caption">Address source: {token.source}</T>}
         {token.custom && <T variant="caption">Custom token (verified on-chain when imported)</T>}
       </Card>
-      {c.family !== 'solana' && <Button title={`Send ${token.symbol}`} onPress={() => router.push({ pathname: '/send', params: { chain: token.chain, token: token.address } })} />}
-      <Button variant="secondary" title="Receive" onPress={() => router.push({ pathname: '/receive', params: { chain: token.chain } })} />
-      {explorer && <Button variant="secondary" title="View on explorer" onPress={() => WebBrowser.openBrowserAsync(explorer)} />}
-      {token.custom && <Button variant="danger" title="Remove token" onPress={() => remove(token).then(() => router.back())} />}
-      {c.faucetUrl && <Button variant="secondary" title="Faucet" onPress={() => WebBrowser.openBrowserAsync(c.faucetUrl!)} />}
+      {c.family !== 'solana' && <Button icon="send" title={`Send ${token.symbol}`} onPress={() => router.push({ pathname: '/send', params: { chain: token.chain, token: token.address } })} />}
+      <Button variant="secondary" icon="receive" title="Receive" onPress={() => router.push({ pathname: '/receive', params: { chain: token.chain } })} />
+      {explorer && <Button variant="secondary" icon="external" title="View on explorer" onPress={() => WebBrowser.openBrowserAsync(explorer)} />}
+      {token.custom && <Button variant="ghost" icon="trash" title="Remove token" onPress={() => setConfirmRemove(true)} />}
+      {c.faucetUrl && <Button variant="secondary" icon="external" title="Faucet" onPress={() => WebBrowser.openBrowserAsync(c.faucetUrl!)} />}
+      {token.custom && (
+        <ConfirmSheet
+          visible={confirmRemove}
+          danger
+          title={`Remove ${token.symbol}?`}
+          body="It disappears from your token list. Any balance stays on-chain; you can import it again later."
+          confirmLabel="Remove"
+          onCancel={() => setConfirmRemove(false)}
+          onConfirm={() => remove(token).then(() => { setConfirmRemove(false); router.back(); })}
+        />
+      )}
     </Screen>
   );
 }

@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 
+import { Notice } from '@/components/states';
 import { Button, Input, Screen, T } from '@/components/ui';
 import { biometricsAvailable } from '@/vault/biometrics';
 import { isValidPin } from '@/vault/vault';
@@ -49,7 +50,7 @@ export default function Security() {
         <T>Unlock with biometrics{bioAvail ? '' : ' (unavailable)'}</T>
         <Switch accessibilityLabel="Unlock with biometrics" testID="bio-switch" value={bio} onValueChange={setBio} disabled={!bioAvail} />
       </View>
-      {error && <T variant="error">{error}</T>}
+      {error && <Notice tone="danger">{error}</Notice>}
       <Button testID="create-vault" title={busy ? 'Encrypting…' : 'Create vault'} disabled={busy} onPress={save} />
     </Screen>
   );

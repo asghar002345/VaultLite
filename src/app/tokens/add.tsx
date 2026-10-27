@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView } from 'react-native';
 
+import { Notice } from '@/components/states';
 import { Button, Card, Input, Screen, T, TestnetBanner } from '@/components/ui';
 import { Chip } from '@/components/wallet';
 import { CHAIN_LIST, CHAINS, type ChainKey } from '@/config/chains';
@@ -52,7 +53,7 @@ export default function AddToken() {
       <Input value={address} onChangeText={(x) => { setAddress(x); setMeta(null); }} placeholder={family === 'tron' ? 'T…' : '0x…'} />
       {v && !v.ok && <T variant="error">{v.reason}</T>}
       <Button title={busy ? 'Checking on-chain…' : 'Verify'} disabled={!v?.ok || busy} onPress={verify} />
-      {err && <T variant="error">{err}</T>}
+      {err && <Notice tone="danger">{err}</Notice>}
       {meta && v?.ok && (
         <Card>
           <T variant="title">{meta.symbol}</T>

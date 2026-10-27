@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { Aurora } from '@/components/fx/skia';
-import { ConfirmSheet } from '@/components/states';
+import { ConfirmSheet, Notice } from '@/components/states';
 import { Button, Input, Screen, T } from '@/components/ui';
 import { PinDots } from '@/components/wallet';
 import { Spacing } from '@/constants/theme';
@@ -78,7 +78,7 @@ export default function Lock() {
         onSubmitEditing={submit}
         style={{ textAlign: 'center', letterSpacing: 8 }}
       />
-      {error && <T variant="error">{error}</T>}
+      {error && <Notice tone="danger">{error}</Notice>}
       <Button testID="unlock" title={busy ? 'Unlocking…' : 'Unlock'} disabled={busy || pin.length !== 6} onPress={submit} />
       {bio && <Button variant="secondary" icon="biometrics" title="Use biometrics" onPress={tryBio} />}
       <Button

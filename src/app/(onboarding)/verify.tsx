@@ -2,6 +2,7 @@ import { Redirect, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { Notice } from '@/components/states';
 import { Button, Card, Screen, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { buildQuiz } from '@/crypto/quiz';
@@ -46,7 +47,7 @@ export default function Verify() {
           </View>
         </Card>
       ))}
-      {error && <T variant="error">{error}</T>}
+      {error && <Notice tone="danger">{error}</Notice>}
       <Button title="Continue" disabled={!done} onPress={check} />
     </Screen>
   );

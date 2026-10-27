@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 
+import { Notice } from '@/components/states';
 import { Button, Card, Input, Screen, T } from '@/components/ui';
 import { CHAINS, type ChainKey } from '@/config/chains';
 import { useReauth } from '@/hooks/use-reauth';
@@ -125,7 +126,7 @@ function ReplaceActions({ rec, onDone }: { rec: TxRecord; onDone: (hash: string)
     <Card>
       <T variant="caption">Stuck? Replace it using the same nonce (fees +12.5% or current market, whichever is higher).</T>
       {auth.needsPin && <Input value={auth.pin} onChangeText={auth.setPin} placeholder="PIN" secureTextEntry keyboardType="number-pad" maxLength={6} />}
-      {err && <T variant="error">{err}</T>}
+      {err && <Notice tone="danger">{err}</Notice>}
       <Button title={busy ? 'Working…' : 'Speed up'} disabled={busy || !auth.ready} onPress={() => run('speedup')} />
       <Button variant="danger" title="Cancel transaction" disabled={busy || !auth.ready} onPress={() => run('cancel')} />
     </Card>

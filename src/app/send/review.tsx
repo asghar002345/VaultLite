@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { EmptyState, ErrorState, Notice } from '@/components/states';
 import { Card, Input, Screen, T, TestnetBanner } from '@/components/ui';
 import { Chip, HoldToConfirm, Skeleton } from '@/components/wallet';
 import { CHAINS, type ChainKey } from '@/config/chains';
@@ -55,7 +56,7 @@ export default function Review() {
     queryFn: () => estimateTronFee(accounts!.tron.address, p.to, token!, amount),
   });
 
-  if (!token || !accounts) return <Screen><T variant="error">Invalid request</T></Screen>;
+  if (!token || !accounts) return <Screen><EmptyState icon="send" title="Nothing to review" body="This transfer is missing its token or amount." action={{ label: 'Start a transfer', onPress: () => router.replace('/send') }} /></Screen>;
   const q = quote.data;
   const fee = q ? q.tiers[tier] : null;
   const worst = evm ? (q && fee ? maxFeeCost(q.gasLimit, fee) : null) : tronFee.data ? BigInt(tronFee.data.totalSun) : null;
@@ -126,7 +127,7 @@ export default function Review() {
             ))}
           </View>
           {quote.isPending && <Skeleton height={40} />}
-          {quote.isError && <T variant="error">Fee estimate failed: {humanizeError(quote.error)}</T>}
+          {quote.isError && <ErrorState title="Fee estimate failed" error={quote.error} onRetry={() => quote.refetch()} />}
           {expected !== null && worst !== null && (
             <>
               <T>≈ {formatAmount(expected, 18, 8)} {nativeSym}</T>
@@ -138,7 +139,7 @@ export default function Review() {
         <Card>
           <T variant="caption">Network fee (Tron resources)</T>
           {tronFee.isPending && <Skeleton height={40} />}
-          {tronFee.isError && <T variant="error">Fee estimate failed: {humanizeError(tronFee.error)}</T>}
+          {tronFee.isError && <ErrorState title="Fee estimate failed" error={tronFee.error} onRetry={() => tronFee.refetch()} />}
           {tf && (
             <>
               <T>{tf.totalSun === 0 ? 'Free (covered by your bandwidth/energy)' : `≈ ${formatAmount(BigInt(tf.totalSun), 6)} TRX burned`}</T>
@@ -157,11 +158,11 @@ export default function Review() {
           )}
         </Card>
       )}
-      {!affordable && <T variant="error">Not enough {nativeSym} for {isNative ? 'amount + ' : ''}max fee</T>}
+      {!affordable && <Notice tone="disabled">Not enough {nativeSym} for {isNative ? 'amount + ' : ''}max fee</Notice>}
       {auth.needsPin && (
         <Input testID="pin" value={auth.pin} onChangeText={auth.setPin} placeholder="PIN to confirm" secureTextEntry keyboardType="number-pad" maxLength={6} />
       )}
-      {error && <T variant="error">{error}</T>}
+      {error && <Notice tone="danger">{error}</Notice>}
       <HoldToConfirm label="Hold to send" disabled={!feeLoaded || !affordable || !auth.ready} onConfirm={confirm} />
     </Screen>
   );
