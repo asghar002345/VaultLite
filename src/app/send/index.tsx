@@ -2,6 +2,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
+import { Field } from '@/components/states';
 import { Button, Input, Screen, T, TestnetBanner } from '@/components/ui';
 import { Chip } from '@/components/wallet';
 import { CHAINS } from '@/config/chains';
@@ -77,23 +78,24 @@ export default function Send() {
         ))}
       </ScrollView>
       <T variant="caption">Recipient ({family === 'tron' ? 'T… base58' : '0x… EIP-55'})</T>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}>
-          <Input testID="to" value={to} onChangeText={setTo} placeholder={family === 'tron' ? 'T…' : '0x…'} />
+      <Field label="Recipient" helper={scanNote ?? undefined} error={addr && !addr.ok ? addr.reason : null}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Input testID="to" value={to} onChangeText={setTo} placeholder={family === 'tron' ? 'T…' : '0x…'} autoCapitalize="none" autoCorrect={false} />
+          </View>
+          <Button variant="secondary" icon="scan" title="Scan" onPress={() => router.push({ pathname: '/scan', params: { mode: 'address' } })} />
         </View>
-        <Button variant="secondary" title="Scan" onPress={() => router.push({ pathname: '/scan', params: { mode: 'address' } })} />
-      </View>
-      {scanNote && <T variant="caption">{scanNote}</T>}
-      {addr && !addr.ok && <T variant="error">{addr.reason}</T>}
-      <T variant="caption">Amount</T>
-      <Input testID="amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.0" />
+      </Field>
+      <Field label="Amount" error={amount !== '' && amt === null ? 'Invalid amount' : over ? 'Exceeds balance' : null}>
+        <Input testID="amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.0" />
+      </Field>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <T variant="caption">Balance: {bal === null ? '—' : `${formatAmount(bal, token.decimals)} ${token.symbol}`}</T>
         {bal !== null && <T variant="caption" onPress={() => setAmount(formatAmount(bal, token.decimals, token.decimals))}>Max</T>}
       </View>
-      {amount !== '' && amt === null && <T variant="error">Invalid amount</T>}
-      {over && <T variant="error">Exceeds balance</T>}
       <Button
+        icon="chevron"
+        testID="send-review"
         title="Review"
         disabled={!ok}
         onPress={() =>
