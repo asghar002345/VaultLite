@@ -162,8 +162,9 @@ function PinDot({ on, color, border }: { on: boolean; color: string; border: str
  * Press and hold for `ms` to fire. Releasing early cancels. Progress drives a Skia ring and a
  * fill (both UI thread); haptic ticks at 33 % / 66 %, success at 100 %.
  */
-export function HoldToConfirm({ label, onConfirm, disabled, ms = Durations.hold }: { label: string; onConfirm: () => void; disabled?: boolean; ms?: number }) {
+export function HoldToConfirm({ label, onConfirm, disabled, ms = Durations.hold, danger }: { label: string; onConfirm: () => void; disabled?: boolean; ms?: number; danger?: boolean }) {
   const t = useTheme();
+  const accent = danger ? t.danger : t.primary;
   const p = useSharedValue(0);
   const [busy, setBusy] = useState(false);
   const fire = () => {
@@ -213,11 +214,11 @@ export function HoldToConfirm({ label, onConfirm, disabled, ms = Durations.hold 
       disabled={disabled}
       onPressIn={start}
       onPressOut={cancel}
-      style={[s.hold, { backgroundColor: t.surface, borderColor: t.border, opacity: disabled ? 0.4 : 1 }]}>
-      <Animated.View style={[s.holdFill, { backgroundColor: alpha(t.primary, 0.2) }, fill]} />
+      style={[s.hold, { backgroundColor: t.surface, borderColor: danger ? alpha(t.danger, 0.6) : t.border, opacity: disabled ? 0.4 : 1 }]}>
+      <Animated.View style={[s.holdFill, { backgroundColor: alpha(accent, 0.22) }, fill]} />
       <View style={s.holdRow}>
-        <HoldRing progress={p} size={36} color={t.primary} track={t.border} />
-        <Text style={{ color: t.text, fontFamily: Fonts.uiSemi, fontSize: FontSize.body }}>{busy ? 'Sending…' : label}</Text>
+        <HoldRing progress={p} size={32} color={accent} track={t.border} />
+        <Text style={{ color: t.text, fontFamily: Fonts.uiMedium, fontSize: FontSize.body }}>{busy ? 'Sending…' : label}</Text>
       </View>
     </Pressable>
   );
@@ -229,7 +230,7 @@ const s = StyleSheet.create({
   seg: { flexDirection: 'row', alignItems: 'center', padding: 4, borderRadius: Radius.pill, borderWidth: 1 },
   segItem: { paddingHorizontal: 14, paddingVertical: 8 },
   segIndicator: { position: 'absolute', top: 4, bottom: 4, left: 0, borderRadius: Radius.pill, borderWidth: 1 },
-  hold: { height: 64, borderRadius: Radius.pill, borderWidth: 1, overflow: 'hidden', justifyContent: 'center' },
+  hold: { height: 56, borderRadius: Radius.pill, borderWidth: 1, overflow: 'hidden', justifyContent: 'center' },
   holdFill: { position: 'absolute', left: 0, top: 0, bottom: 0 },
   holdRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
   band: { position: 'absolute', top: 0, bottom: 0, left: 0, opacity: 0.9, borderRadius: Radius.md },

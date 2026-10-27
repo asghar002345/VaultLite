@@ -26,3 +26,13 @@ describe('home asset preview', () => {
     expect(previewRows(rows, 10)).toHaveLength(6);
   });
 });
+
+describe('recipientRisk', () => {
+  const { recipientRisk } = jest.requireActual('@/lib/recipient-risk') as typeof import('@/lib/recipient-risk');
+  it('flags sends to the token contract itself and to contracts', () => {
+    expect(recipientRisk('0xAbc', '0xabc', '0x')).toBe('token-contract');
+    expect(recipientRisk('0x1', null, '0x6080')).toBe('contract');
+    expect(recipientRisk('0x1', '0x2', '0x')).toBeNull();
+    expect(recipientRisk('0x1', null, undefined)).toBeNull();
+  });
+});
