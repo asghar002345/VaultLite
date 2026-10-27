@@ -6,18 +6,7 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { haptic } from '@/motion';
 
-/** Pure: apply one keypad key to a value (digits, '.', 'back'), respecting a max length and one decimal point. */
-export function applyKey(value: string, key: string, opts: { maxLength?: number; decimal?: boolean } = {}): string {
-  if (key === 'back') return value.slice(0, -1);
-  if (key === '.') {
-    if (!opts.decimal || value.includes('.')) return value;
-    return value === '' ? '0.' : value + '.';
-  }
-  if (!/^\d$/.test(key)) return value;
-  if (opts.maxLength !== undefined && value.length >= opts.maxLength) return value;
-  if (opts.decimal && value === '0') return key;
-  return value + key;
-}
+export { applyKey } from '@/lib/keypad';
 
 function Key({ k, label, icon, a11y, round, disabled, onKey, testIDPrefix }: { k: string; label?: string; icon?: IconName; a11y: string; round?: boolean; disabled?: boolean; onKey: (k: string) => void; testIDPrefix: string }) {
   const t = useTheme();

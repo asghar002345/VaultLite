@@ -1,5 +1,5 @@
-import { applyKey } from '@/components/keypad';
-import { previewRows } from '@/components/token-row';
+import { applyKey } from '@/lib/keypad';
+import { previewRows } from '@/lib/preview';
 
 describe('keypad applyKey', () => {
   it('builds a PIN up to max length and deletes', () => {
