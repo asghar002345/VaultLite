@@ -125,11 +125,11 @@ export function ListRow({ icon, title, subtitle, value, onPress, danger, testID,
         { backgroundColor: pressed ? t.surfaceRaised : t.surface },
       ]}>
       {icon ? <Icon name={icon} size="md" tint={danger ? t.danger : t.textSecondary} /> : null}
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 96 }}>
         <T variant="label" style={danger ? { color: t.danger } : undefined}>{title}</T>
         {subtitle ? <T variant="caption">{subtitle}</T> : null}
       </View>
-      {value ? <T variant="caption" style={{ fontFamily: Fonts.mono }}>{value}</T> : null}
+      {value ? <T variant="caption" numberOfLines={1} style={{ fontFamily: Fonts.mono, flexShrink: 1, maxWidth: '62%', textAlign: 'right' }}>{value}</T> : null}
       {right}
       {onPress && !right ? <Icon name="chevron" size="sm" color="textTertiary" /> : null}
     </Pressable>

@@ -33,7 +33,7 @@ export default function EscrowList() {
         {list.isPending && <LoadingState rows={3} height={120} label="Loading escrows" />}
         {list.isError && <ErrorState title="Couldn't load escrows" error={list.error} onRetry={() => list.refetch()} />}
         {list.data?.length === 0 && (
-          <EmptyState icon="escrow" title="No escrows yet" body="Create a milestone escrow to pay a provider in stages, with an arbiter for disputes." action={{ label: 'New escrow', onPress: () => router.push('/escrow/create') }} />
+          <EmptyState icon="escrow" title="No escrows yet" body="Create a milestone escrow to pay a provider in stages, with an arbiter for disputes." />
         )}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
           {list.data?.map((e, i) => (

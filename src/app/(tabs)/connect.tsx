@@ -22,7 +22,7 @@ export default function WalletConnectSessions() {
         {q.isPending && <LoadingState rows={2} label="Loading sessions" />}
         {q.isError && <ErrorState title="Couldn't start WalletConnect" error={q.error} onRetry={() => q.refetch()} />}
         {q.isSuccess && q.data.length === 0 && (
-          <EmptyState icon="connect" title="No connected dApps" body="Scan a WalletConnect QR code or paste a wc: link to connect." action={{ label: 'Connect a dApp', onPress: () => router.push('/walletconnect/pair') }} />
+          <EmptyState icon="connect" title="No connected dApps" body="Scan a WalletConnect QR code or paste a wc: link to connect." />
         )}
         {q.data?.map((s) => (
           <ListRow
