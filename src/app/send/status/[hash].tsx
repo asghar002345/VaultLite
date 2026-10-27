@@ -15,6 +15,9 @@ import { canReplace, type TxRecord } from '@/store/history-core';
 import { useHistory } from '@/store/history';
 import { useSession } from '@/vault/session';
 
+import { PendingPulse } from '@/components/fx/pulse';
+import { SuccessBurst } from '@/components/fx/skia';
+
 const LABEL = { pending: 'Pending…', success: 'Confirmed ✓', failed: 'Failed ✗', replaced: 'Replaced ↺' } as const;
 
 export default function Status() {
@@ -44,6 +47,7 @@ export default function Status() {
 
   return (
     <Screen>
+      {state === 'success' ? <SuccessBurst /> : state === 'pending' ? <PendingPulse /> : null}
       <Card>
         <T variant="title" testID="tx-state">{LABEL[state]}</T>
         {rec && (

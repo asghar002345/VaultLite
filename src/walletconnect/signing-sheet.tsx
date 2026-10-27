@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { formatUnits } from 'viem';
 
 import { Button, Card, Input, T } from '@/components/ui';
@@ -14,6 +15,7 @@ import { formatAmount } from '@/lib/format';
 import { useAllTokens } from '@/store/custom-tokens';
 import { useHistory } from '@/store/history';
 import { useSession } from '@/vault/session';
+import { haptic, useMotion } from '@/motion';
 
 import { typedDataTree, type Risk } from './decode';
 import { RPC_ERRORS } from './errors';
@@ -152,8 +154,14 @@ export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose:
   const [busy, setBusy] = useState(false);
   const a = item.analysis;
   const danger = a.risks.some((r) => r.level === 'danger');
+  const m = useMotion();
+  const t = useTheme();
+  useEffect(() => {
+    haptic.medium();
+  }, []);
 
   const reject = async () => {
+    haptic.warning();
     await respondError(item.request, RPC_ERRORS.userRejected).catch(() => {});
     onClose();
   };
@@ -181,9 +189,11 @@ export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose:
   };
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={reject}>
-      <View style={s.backdrop}>
-        <Card>
+    <Modal transparent animationType="none" onRequestClose={reject}>
+      <Animated.View entering={m.fade()} style={s.backdrop}>
+        <Animated.View entering={m.sheet()}>
+        <Card raised style={{ borderRadius: 32, padding: 20 }}>
+          <View style={[s.grabber, { backgroundColor: t.border }]} />
           <ScrollView style={{ maxHeight: 560 }} contentContainerStyle={{ gap: 10 }}>
             <T variant="title">{TITLES[a.kind]}</T>
             <T variant="caption">{item.peer.name} · {item.peer.url}</T>
@@ -201,12 +211,14 @@ export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose:
           )}
           <Button variant="secondary" title="Reject" disabled={busy} onPress={reject} />
         </Card>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end', padding: 16, backgroundColor: '#0008' },
+  backdrop: { flex: 1, justifyContent: 'flex-end', padding: 12, backgroundColor: '#000A' },
+  grabber: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 4 },
   risk: { borderWidth: 1, borderRadius: 8, padding: 8 },
 });

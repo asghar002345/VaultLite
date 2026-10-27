@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
+    "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/ui": "~58.0.23",
     "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.4.0",
@@ -13,6 +16,7 @@
     "@scure/base": "^2.4.0",
     "@scure/bip32": "^2.4.0",
     "@scure/bip39": "^2.4.0",
+    "@shopify/react-native-skia": "2.14.0",
     "@tanstack/react-query": "^5.104.5",
     "@walletconnect/core": "^2.26.0",
     "@walletconnect/react-native-compat": "^2.26.0",
@@ -74,7 +78,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "web:skia": "node -e \"require('fs').mkdirSync('public',{recursive:true});require('fs').copyFileSync('node_modules/canvaskit-wasm/bin/full/canvaskit.wasm','public/canvaskit.wasm')\"",
+    "export:web": "npm run web:skia && expo export --platform web"
   },
   "private": true,
   "jest": {

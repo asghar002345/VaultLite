@@ -71,7 +71,7 @@ export default function Send() {
     <Screen>
       <TestnetBanner />
       <T variant="caption">Asset</T>
-      <ScrollView horizontal contentContainerStyle={{ gap: 8 }} showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8 }} showsHorizontalScrollIndicator={false}>
         {TOKENS.map((t) => (
           <Chip key={`${t.chain}:${t.address}`} label={`${t.symbol} · ${CHAINS[t.chain].name.replace(' Testnet', '')}`} active={tokenKey === `${t.chain}:${t.address}`} onPress={() => setTokenKey(`${t.chain}:${t.address}`)} />
         ))}

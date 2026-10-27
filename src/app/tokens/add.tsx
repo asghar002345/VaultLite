@@ -43,7 +43,7 @@ export default function AddToken() {
     <Screen>
       <TestnetBanner />
       <T variant="caption">Network</T>
-      <ScrollView horizontal contentContainerStyle={{ gap: 8 }} showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8 }} showsHorizontalScrollIndicator={false}>
         {CHAIN_LIST.filter((c) => c.family !== 'solana').map((c) => (
           <Chip key={c.key} label={c.name.replace(' Testnet', '')} active={chain === c.key} onPress={() => { setChain(c.key as ChainKey); setMeta(null); }} />
         ))}

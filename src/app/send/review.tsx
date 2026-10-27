@@ -18,6 +18,7 @@ import { broadcastTron, buildTronTransfer, estimateTronFee, signTronTx, TRC20_FE
 import { findIn, useAllTokens } from '@/store/custom-tokens';
 import { useHistory } from '@/store/history';
 import { useSession } from '@/vault/session';
+import { Tabular } from '@/constants/theme';
 
 // Module-level so the React Compiler lint doesn't treat it as a render-time impure call.
 const nowMs = () => Date.now();
@@ -109,7 +110,9 @@ export default function Review() {
       <TestnetBanner />
       <Card>
         <T variant="caption">Sending</T>
-        <T variant="hero">{formatAmount(amount, token.decimals)} {token.symbol}</T>
+        <T variant="hero" style={Tabular}>
+          {formatAmount(amount, token.decimals)} <T variant="title" style={{ opacity: 0.6 }}>{token.symbol}</T>
+        </T>
         <T variant="caption">on {CHAINS[chain].name}</T>
         <T variant="caption">To</T>
         <T variant="mono" selectable>{p.to}</T>

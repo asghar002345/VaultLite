@@ -7,6 +7,8 @@ import { humanizeError } from '@/lib/errors';
 import { formatAmount } from '@/lib/format';
 import { availableActions, roleOf, type EscrowAction } from '@/modules/escrow';
 import { ESCROW_CHAIN, useEscrow } from '@/modules/escrow/use-escrow';
+import { MilestoneTrack, StatusPill } from '@/modules/escrow/ui';
+import { SuccessBurst } from '@/components/fx/skia';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const LABEL: Record<EscrowAction['kind'], string> = {
@@ -56,7 +58,9 @@ export default function EscrowDetail() {
   return (
     <Screen>
       <TestnetBanner />
-      <T variant="title">Escrow #{id} · {e.status}</T>
+      <T variant="title">Escrow #{id}</T>
+      <StatusPill status={e.status} />
+      <MilestoneTrack milestones={e.milestones} />
       <T variant="caption">You are the {roleOf(e, me)} · total {formatAmount(e.total, 6)} USDC · review {Math.round(e.reviewPeriod / 3600)}h</T>
       <T variant="mono">client {e.client}{'\n'}provider {e.provider}{'\n'}arbiter {e.arbiter}</T>
       {e.milestones.map((m) => (
@@ -64,6 +68,7 @@ export default function EscrowDetail() {
       ))}
       {auth.needsPin && actions.length ? <Input placeholder="PIN" value={auth.pin} onChangeText={auth.setPin} secureTextEntry keyboardType="number-pad" maxLength={6} /> : null}
       {error ? <T variant="error">{error}</T> : null}
+      {lastTx ? <SuccessBurst size={140} /> : null}
       {lastTx ? <T variant="caption">Last tx: {lastTx}</T> : null}
       {actions.map((a) => {
         const key = a.kind + ('index' in a ? a.index : '');

@@ -1,8 +1,16 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { View } from 'react-native';
+import Animated from 'react-native-reanimated';
+
+import { Aurora } from '@/components/fx/skia';
+import { Skeleton, TokenOrb } from '@/components/wallet';
+import { Fonts, Radius, Tabular } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { haptic, useMotion } from '@/motion';
+import { useEffect } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 
 import { Button, Card, Screen, T } from '@/components/ui';
-import { Skeleton } from '@/components/wallet';
 import { getChain, type ChainKey } from '@/config/chains';
 import { NATIVE } from '@/config/tokens';
 import { useBalances } from '@/hooks/use-balances';
@@ -15,6 +23,9 @@ export default function TokenDetail() {
   const { remove } = useCustomTokenMutations();
   const token = findIn(tokens, chain, address);
   const q = useBalances();
+  const t = useTheme();
+  const m = useMotion();
+  useEffect(() => haptic.light(), []);
   if (!token) return <Screen><T variant="error">Unknown token</T></Screen>;
   const c = getChain(token.chain as ChainKey);
   const bal = q.data?.find((x) => x.chain === token.chain && x.address === token.address)?.balance;
@@ -22,9 +33,26 @@ export default function TokenDetail() {
     token.address === NATIVE ? null : c.family === 'tron' ? `${c.explorerUrl}/#/token20/${token.address}` : `${c.explorerUrl}/token/${token.address}`;
   return (
     <Screen>
-      <T variant="title">{token.name}</T>
-      <T variant="caption">{c.name}</T>
-      {q.isPending ? <Skeleton height={40} /> : <T variant="hero">{bal == null ? '—' : formatAmount(bal, token.decimals)} {token.symbol}</T>}
+      <View style={{ borderRadius: Radius.xl, borderWidth: 1, borderColor: t.border, backgroundColor: t.surface, padding: 24, alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+        <Aurora intensity={0.6} />
+        {/* "Shared-element-like": the orb pops in with a spring, title follows. Not a true shared transition. */}
+        <Animated.View entering={m.pop()}>
+          <TokenOrb chain={token.chain} symbol={token.symbol} size={72} />
+        </Animated.View>
+        <Animated.View entering={m.enter(1)} style={{ alignItems: 'center' }}>
+          <T variant="title">{token.name}</T>
+          <T variant="caption">{c.name}</T>
+        </Animated.View>
+        {q.isPending ? (
+          <Skeleton height={40} />
+        ) : (
+          <Animated.View entering={m.enter(2)}>
+            <T style={[{ fontFamily: Fonts.display, fontSize: 36, letterSpacing: -1, color: t.text }, Tabular]}>
+              {bal == null ? '—' : formatAmount(bal, token.decimals)} <T style={{ fontFamily: Fonts.displayMedium, fontSize: 20, color: t.textSecondary }}>{token.symbol}</T>
+            </T>
+          </Animated.View>
+        )}
+      </View>
       <Card>
         <T variant="caption">Contract</T>
         <T variant="mono" selectable>{token.address === NATIVE ? 'Native gas token' : token.address}</T>

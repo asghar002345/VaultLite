@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, View } from 'react-native';
 
+import Animated from 'react-native-reanimated';
+
+import { Aurora } from '@/components/fx/skia';
 import { Button, Input, Screen, T } from '@/components/ui';
+import { PinDots } from '@/components/wallet';
+import { Spacing } from '@/constants/theme';
+import { haptic, useMotion } from '@/motion';
 import { vault } from '@/vault';
 import { biometricsAvailable } from '@/vault/biometrics';
 import { useSession } from '@/vault/session';
@@ -14,6 +20,8 @@ export default function Lock() {
   const [bio, setBio] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shake, setShake] = useState(0);
+  const m = useMotion();
 
   const tryBio = useCallback(async () => {
     try {
@@ -39,14 +47,35 @@ export default function Lock() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setPin('');
+      setShake((n) => n + 1);
       setBusy(false);
     }
   };
 
   return (
-    <Screen>
-      <T variant="hero">Locked</T>
-      <Input testID="lock-pin" placeholder="Enter PIN" keyboardType="number-pad" secureTextEntry maxLength={6} value={pin} onChangeText={setPin} onSubmitEditing={submit} />
+    <Screen backdrop={<Aurora intensity={0.8} />}>
+      <View style={{ alignItems: 'center', gap: Spacing.md, marginTop: Spacing.xxl }}>
+        <Animated.View entering={m.pop()}>
+          <T variant="hero">Locked</T>
+        </Animated.View>
+        <T variant="caption">Enter your 6-digit PIN</T>
+        <PinDots length={6} filled={pin.length} error={!!error} shakeKey={shake} />
+      </View>
+      <Input
+        testID="lock-pin"
+        placeholder="Enter PIN"
+        keyboardType="number-pad"
+        secureTextEntry
+        maxLength={6}
+        value={pin}
+        onChangeText={(v) => {
+          if (v.length > pin.length) haptic.light();
+          setError(null);
+          setPin(v);
+        }}
+        onSubmitEditing={submit}
+        style={{ textAlign: 'center', letterSpacing: 8 }}
+      />
       {error && <T variant="error">{error}</T>}
       <Button testID="unlock" title={busy ? 'Unlocking…' : 'Unlock'} disabled={busy || pin.length !== 6} onPress={submit} />
       {bio && <Button variant="secondary" title="Use biometrics" onPress={tryBio} />}

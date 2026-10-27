@@ -1,9 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { Button, Card, Screen, T } from '@/components/ui';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { useMotion } from '@/motion';
 import { newMnemonic } from '@/crypto/derive';
 import { useSession } from '@/vault/session';
 import { useSecureScreen } from '@/hooks/use-secure-screen';
@@ -14,6 +17,8 @@ export default function Create() {
   const [mnemonic] = useState(() => newMnemonic(128));
   const [revealed, setRevealed] = useState(false);
   const words = mnemonic.split(' ');
+  const t = useTheme();
+  const m = useMotion();
 
   return (
     <Screen>
@@ -25,9 +30,12 @@ export default function Create() {
         {revealed ? (
           <View style={styles.grid}>
             {words.map((w, i) => (
-              <T key={i} variant="mono" style={styles.word}>
-                {i + 1}. {w}
-              </T>
+              <Animated.View key={i} entering={m.enter(i)} style={styles.cell}>
+                <View style={[styles.chip, { backgroundColor: t.surfaceRaised, borderColor: t.border }]}>
+                  <T variant="caption" style={{ width: 20 }}>{i + 1}</T>
+                  <T variant="mono" style={{ fontSize: 15 }}>{w}</T>
+                </View>
+              </Animated.View>
             ))}
           </View>
         ) : (
@@ -48,5 +56,6 @@ export default function Create() {
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: Spacing.sm },
-  word: { width: '50%' },
+  cell: { width: '50%', paddingHorizontal: 4 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 12, borderRadius: Radius.md, borderWidth: 1 },
 });
