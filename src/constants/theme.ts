@@ -17,6 +17,9 @@ export const Colors = {
     warning: '#B7791F',
     onWarning: '#FFFFFF',
     success: '#0E9F79',
+    scrim: '#12131A99',
+    qrInk: '#07080C',
+    qrPaper: '#F6F3EC',
   },
   dark: {
     text: '#F4F1EA',
@@ -33,6 +36,9 @@ export const Colors = {
     warning: '#FFC857',
     onWarning: '#1A1300',
     success: '#5CF2C4',
+    scrim: '#000000AA',
+    qrInk: '#07080C',
+    qrPaper: '#F6F3EC',
   },
 } as const;
 
@@ -63,3 +69,17 @@ export const Fonts = {
 } as const;
 
 export const Tabular: TextStyle = { fontVariant: ['tabular-nums'] };
+
+/** `#RRGGBB` + alpha (0..1) → `#RRGGBBAA`. Use instead of string-concatenating hex suffixes. */
+export function alpha(hex: string, a: number) {
+  const base = hex.length === 9 ? hex.slice(0, 7) : hex;
+  return base + Math.round(Math.min(1, Math.max(0, a)) * 255).toString(16).padStart(2, '0').toUpperCase();
+}
+
+/** Layout tokens (responsive primitives read these). */
+export const Layout = {
+  maxContent: 560,
+  maxContentWide: 960,
+  breakpoints: { compact: 360, regular: 600, medium: 900 },
+  tabBarHeight: 76,
+} as const;

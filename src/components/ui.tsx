@@ -3,15 +3,45 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInpu
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Fonts, FontSize, Radius, Spacing, Tabular } from '@/constants/theme';
+import { useBreakpoint, useTabInset } from '@/components/layout';
+import { Fonts, FontSize, Layout, Radius, Spacing, Tabular } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { Icon, type IconName } from '@/components/icon';
 import { haptic, Springs, useMotion } from '@/motion';
 
-export function Screen({ children, scroll = true, backdrop, tab }: { children: ReactNode; scroll?: boolean; backdrop?: ReactNode; tab?: boolean }) {
+export function Screen({
+  children,
+  scroll = true,
+  backdrop,
+  tab,
+  wide,
+  testID,
+}: {
+  children: ReactNode;
+  scroll?: boolean;
+  backdrop?: ReactNode;
+  /** Tab root: pads the bottom so content clears the floating tab bar. */
+  tab?: boolean;
+  /** Allow the wider content column (lists/dashboards). */
+  wide?: boolean;
+  testID?: string;
+}) {
   const t = useTheme();
-  const body = <View style={[styles.inner, tab && styles.tabInset]}>{children}</View>;
+  const tabInset = useTabInset();
+  const { compact } = useBreakpoint();
+  const body = (
+    <View
+      testID={testID}
+      style={[
+        styles.inner,
+        { maxWidth: wide ? Layout.maxContentWide : Layout.maxContent, padding: compact ? Spacing.md : Spacing.lg },
+        tab && { paddingBottom: tabInset },
+      ]}>
+      {children}
+    </View>
+  );
   return (
-    <SafeAreaView style={[styles.flex, { backgroundColor: t.background }]}>
+    <SafeAreaView style={[styles.flex, { backgroundColor: t.background }]} edges={tab ? ['top', 'left', 'right'] : ['left', 'right', 'bottom']}>
       {backdrop}
       {scroll ? <ScrollView contentContainerStyle={styles.grow} keyboardShouldPersistTaps="handled">{body}</ScrollView> : body}
     </SafeAreaView>
@@ -69,7 +99,7 @@ export function Button({
   testID?: string;
   accessibilityLabel?: string;
   accessibilityHint?: string;
-  icon?: string;
+  icon?: IconName;
 }) {
   const t = useTheme();
   const press = usePressScale();
@@ -98,7 +128,7 @@ export function Button({
         press.style,
       ]}>
       <View style={styles.btnRow}>
-        {icon ? <Text style={{ color: fg, fontSize: FontSize.body }} accessibilityElementsHidden importantForAccessibility="no">{icon}</Text> : null}
+        {icon ? <Icon name={icon} size="md" tint={fg} /> : null}
         <Text style={{ color: fg, fontFamily: Fonts.uiSemi, fontSize: FontSize.body, letterSpacing: 0.1 }}>{title}</Text>
       </View>
     </AnimatedPressable>
@@ -141,8 +171,7 @@ export function TestnetBanner() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   grow: { flexGrow: 1 },
-  inner: { flex: 1, padding: Spacing.lg, gap: Spacing.md },
-  tabInset: { paddingBottom: 120 },
+  inner: { flex: 1, gap: Spacing.md, width: '100%', alignSelf: 'center' },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   btn: { paddingVertical: 16, borderRadius: Radius.pill, alignItems: 'center' },
   input: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.body },

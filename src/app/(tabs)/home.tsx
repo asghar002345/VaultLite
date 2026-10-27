@@ -114,10 +114,10 @@ export default function Home() {
               </T>
               <View style={s.row}>
                 <View style={s.flex}>
-                  <Button title="Send" icon="↗" onPress={() => router.push('/send')} />
+                  <Button title="Send" icon="send" onPress={() => router.push('/send')} />
                 </View>
                 <View style={s.flex}>
-                  <Button variant="secondary" title="Receive" icon="↙" onPress={() => router.push('/receive')} />
+                  <Button variant="secondary" title="Receive" icon="receive" onPress={() => router.push('/receive')} />
                 </View>
               </View>
             </View>
