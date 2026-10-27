@@ -1,9 +1,12 @@
 import { Colors, type Palette } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { resolveScheme, useSettings } from '@/store/settings';
 
-/** Dark-first: light only when the OS explicitly reports light. */
+/** Dark-first: honours the user's theme preference; "system" is light only when the OS says light. */
 export function useIsDark() {
-  return useColorScheme() !== 'light';
+  const system = useColorScheme();
+  const { theme } = useSettings();
+  return resolveScheme(theme, system) === 'dark';
 }
 
 export function useTheme(): Palette {

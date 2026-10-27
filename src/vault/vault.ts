@@ -150,6 +150,29 @@ export class Vault {
     }
   }
 
+  /**
+   * Re-encrypt the secret under a new PIN (fresh salts + nonce). Requires the current PIN.
+   * If biometrics were enabled, the biometric key is re-wrapped to the new KEK.
+   */
+  async changePin(currentPin: string, newPin: string) {
+    if (!isValidPin(newPin)) throw new Error('New PIN must be 6 digits');
+    if (newPin === currentPin) throw new Error('New PIN must differ from the current PIN');
+    const secret = await this.unlockWithPin(currentPin);
+    const biometrics = await this.biometricsEnabled();
+    await this.create(secret, newPin, { biometrics });
+  }
+
+  /** Enable/disable biometric unlock. Enabling needs the PIN to derive the key to wrap. */
+  async setBiometrics(pin: string, enabled: boolean) {
+    const secret = await this.unlockWithPin(pin);
+    await this.create(secret, pin, { biometrics: enabled });
+  }
+
+  /** Verify the PIN and return the secret (for "reveal recovery phrase"). Counts failed attempts. */
+  async revealWithPin(pin: string): Promise<WalletSecret> {
+    return this.unlockWithPin(pin);
+  }
+
   async wipe() {
     await this.kv.remove(KEYS.blob);
     await this.kv.remove(KEYS.bioKek);
