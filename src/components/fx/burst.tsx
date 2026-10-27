@@ -5,6 +5,7 @@ import Animated, { useDerivedValue, useSharedValue, withDelay, withSpring, withT
 
 import { useTheme } from '@/hooks/use-theme';
 import { haptic, Springs, useMotion } from '@/motion';
+import { Icon } from '@/components/icon';
 
 const N = 18;
 
@@ -42,7 +43,7 @@ export function SuccessBurst({ size = 200 }: { size?: number }) {
         </Canvas>
       )}
       <Animated.View style={[styles.check, { backgroundColor: t.primary }]}>
-        <Animated.Text style={{ color: t.onPrimary, fontSize: 36, fontWeight: '800' }}>✓</Animated.Text>
+        <Icon name="check" size="xl" tint={t.onPrimary} />
       </Animated.View>
     </View>
   );

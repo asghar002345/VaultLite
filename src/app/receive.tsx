@@ -6,15 +6,18 @@ import Animated from 'react-native-reanimated';
 
 import { Aurora } from '@/components/fx/skia';
 import { Radius } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { haptic, useMotion } from '@/motion';
 import QRCode from 'react-native-qrcode-svg';
 
+import { EmptyState } from '@/components/states';
 import { Button, Card, Screen, T, TestnetBanner } from '@/components/ui';
 import { SegmentedPills } from '@/components/wallet';
 import { CHAINS, type ChainKey } from '@/config/chains';
 import { useSession } from '@/vault/session';
 
 export default function Receive() {
+  const t = useTheme();
   const params = useLocalSearchParams<{ chain?: string }>();
   const { accounts } = useSession();
   type Mode = 'evm' | 'tron' | 'solana';
@@ -27,20 +30,20 @@ export default function Receive() {
   const label =
     mode === 'tron' ? CHAINS.tronNile.name : mode === 'solana' ? CHAINS.solanaDevnet.name : params.chain && params.chain in CHAINS ? CHAINS[params.chain as ChainKey].name : 'any EVM testnet';
   return (
-    <Screen>
+    <Screen testID="receive">
       <TestnetBanner />
       <SegmentedPills<Mode>
         items={[{ key: 'evm', label: 'EVM' }, { key: 'tron', label: 'Tron Nile' }, { key: 'solana', label: 'Solana Devnet' }]}
         value={mode}
         onChange={setMode}
       />
-      {!address && <T variant="caption">{accounts.solana.note}</T>}
+      {!address && <EmptyState icon="ban" title="No Solana address" body={accounts.solana.note} />}
       {address && (<>
       <Animated.View key={mode} entering={m.pop()}>
       <Card style={{ overflow: 'hidden', alignItems: 'stretch' }}>
         <Aurora intensity={0.9} />
-        <View accessible accessibilityLabel={`QR code for ${label} address`} style={{ alignItems: 'center', padding: 18, backgroundColor: '#F6F3EC', borderRadius: Radius.lg, alignSelf: 'center' }}>
-          <QRCode value={address} size={210} color="#07080C" backgroundColor="#F6F3EC" />
+        <View accessible accessibilityLabel={`QR code for ${label} address`} style={{ alignItems: 'center', padding: 18, backgroundColor: t.qrPaper, borderRadius: Radius.lg, alignSelf: 'center' }}>
+          <QRCode value={address} size={210} color={t.qrInk} backgroundColor={t.qrPaper} />
         </View>
         <T variant="caption">Your address on {label}</T>
         <T variant="mono" selectable testID="receive-address">{address}</T>
@@ -48,7 +51,8 @@ export default function Receive() {
       </Animated.View>
       <T variant="caption">Only send testnet assets. {tron ? 'TRX / TRC-20 on Nile only.' : mode === 'solana' ? 'Devnet SOL only (get some at faucet.solana.com).' : 'Same address on Sepolia, Amoy, BSC Testnet and Base Sepolia.'}</T>
       <Button
-        title={copied ? 'Copied ✓' : 'Copy address'}
+        icon={copied ? 'check' : 'copy'}
+        title={copied ? 'Copied' : 'Copy address'}
         onPress={async () => {
           await Clipboard.setStringAsync(address);
           haptic.success();

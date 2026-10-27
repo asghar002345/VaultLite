@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Fonts, Radius } from '@/constants/theme';
+import { alpha, Fonts, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 import type { EscrowStatus, Milestone } from './types';
@@ -9,7 +9,7 @@ export function StatusPill({ status }: { status: EscrowStatus }) {
   const t = useTheme();
   const c = { Funded: t.primary, Created: t.accent, Disputed: t.danger, Completed: t.success, Resolved: t.textSecondary, Cancelled: t.textSecondary, Refunded: t.accentWarm, None: t.textSecondary }[status];
   return (
-    <View style={[s.pill, { borderColor: c + '66', backgroundColor: c + '1A' }]}>
+    <View style={[s.pill, { borderColor: alpha(c, 0.4), backgroundColor: alpha(c, 0.1) }]}>
       <Text style={{ color: c, fontFamily: Fonts.uiSemi, fontSize: 11, letterSpacing: 0.6 }}>{status.toUpperCase()}</Text>
     </View>
   );

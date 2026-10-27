@@ -4,7 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useBreakpoint, useTabInset } from '@/components/layout';
-import { Fonts, FontSize, Layout, Radius, Spacing, Tabular } from '@/constants/theme';
+import { alpha, Fonts, FontSize, Layout, Radius, Spacing, Tabular } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Icon, type IconName } from '@/components/icon';
 import { haptic, Springs, useMotion } from '@/motion';
@@ -161,7 +161,7 @@ export function TestnetBanner() {
       testID="testnet-banner"
       accessibilityRole="header"
       accessibilityLabel="Warning: testnet only. Tokens have no real value."
-      style={[styles.banner, { borderColor: t.warning, backgroundColor: t.warning + '1A' }]}>
+      style={[styles.banner, { borderColor: t.warning, backgroundColor: alpha(t.warning, 0.1) }]}>
       <View style={[styles.dot, { backgroundColor: t.warning }]} />
       <Text style={{ color: t.warning, fontFamily: Fonts.uiSemi, fontSize: 12, letterSpacing: 0.6 }}>TESTNET ONLY · tokens have no real value</Text>
     </View>

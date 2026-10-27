@@ -15,7 +15,7 @@ import Animated, {
 
 import { HoldRing } from '@/components/fx/skia';
 import { usePressScale } from '@/components/ui';
-import { ChainHue, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { alpha, ChainHue, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Durations, haptic, Springs, useMotion } from '@/motion';
 
@@ -117,7 +117,7 @@ export function TokenOrb({ chain, symbol, size = 40 }: { chain: string; symbol: 
   const t = useTheme();
   const hue = ChainHue[chain] ?? t.accent;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: hue + '26', borderWidth: 1, borderColor: hue + '80', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: alpha(hue, 0.15), borderWidth: 1, borderColor: alpha(hue, 0.5), alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ color: hue, fontFamily: Fonts.display, fontSize: size * 0.42 }}>{symbol.slice(0, 1)}</Text>
     </View>
   );
@@ -214,7 +214,7 @@ export function HoldToConfirm({ label, onConfirm, disabled, ms = Durations.hold 
       onPressIn={start}
       onPressOut={cancel}
       style={[s.hold, { backgroundColor: t.surface, borderColor: t.border, opacity: disabled ? 0.4 : 1 }]}>
-      <Animated.View style={[s.holdFill, { backgroundColor: t.primary + '33' }, fill]} />
+      <Animated.View style={[s.holdFill, { backgroundColor: alpha(t.primary, 0.2) }, fill]} />
       <View style={s.holdRow}>
         <HoldRing progress={p} size={36} color={t.primary} track={t.border} />
         <Text style={{ color: t.text, fontFamily: Fonts.uiSemi, fontSize: FontSize.body }}>{busy ? 'Sending…' : label}</Text>

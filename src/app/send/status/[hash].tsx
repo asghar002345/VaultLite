@@ -18,7 +18,7 @@ import { useSession } from '@/vault/session';
 import { PendingPulse } from '@/components/fx/pulse';
 import { SuccessBurst } from '@/components/fx/skia';
 
-const LABEL = { pending: 'Pending…', success: 'Confirmed ✓', failed: 'Failed ✗', replaced: 'Replaced ↺' } as const;
+const LABEL = { pending: 'Pending…', success: 'Confirmed', failed: 'Failed', replaced: 'Replaced' } as const;
 
 export default function Status() {
   const { hash, chain } = useLocalSearchParams<{ hash: string; chain: string }>();

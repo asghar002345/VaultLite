@@ -5,6 +5,7 @@ import { useDerivedValue } from 'react-native-reanimated';
 
 import { useIsDark, useTheme } from '@/hooks/use-theme';
 import { useMotion } from '@/motion';
+import { alpha } from '@/constants/theme';
 
 type Blob = { color: string; r: number; ax: number; ay: number; px: number; py: number; speed: number; phase: number };
 
@@ -17,7 +18,7 @@ function AuroraBlob({ b, w, h, clock, still }: { b: Blob; w: number; h: number; 
   const r = Math.max(w, h) * b.r;
   return (
     <Circle cx={cx} cy={cy} r={r}>
-      <RadialGradient c={c} r={r} colors={[b.color, b.color + '00']} />
+      <RadialGradient c={c} r={r} colors={[b.color, alpha(b.color, 0)]} />
       <BlurMask blur={24} style="normal" />
     </Circle>
   );

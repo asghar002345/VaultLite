@@ -1,14 +1,15 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Icon } from '@/components/icon';
 import { T } from '@/components/ui';
 import { CHAINS } from '@/config/chains';
-import { Radius, Spacing } from '@/constants/theme';
+import { alpha, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatAmount, shortAddr } from '@/lib/format';
 import type { TxRecord } from '@/store/history-core';
 
-const ICON = { pending: '◌', success: '✓', failed: '✕', replaced: '↺' } as const;
+
 
 export function TxRow({ tx }: { tx: TxRecord }) {
   const t = useTheme();
@@ -22,8 +23,8 @@ export function TxRow({ tx }: { tx: TxRecord }) {
       accessibilityLabel={`${title}, ${tx.status}, on ${CHAINS[tx.chain].name}`}
       onPress={() => router.push({ pathname: '/send/status/[hash]', params: { hash: tx.hash, chain: tx.chain } })}
       style={[s.row, { borderColor: t.border, backgroundColor: t.surface }]}>
-      <View style={[s.badge, { backgroundColor: color + '22' }]}>
-        <T style={{ color }}>{ICON[tx.status]}</T>
+      <View style={[s.badge, { backgroundColor: alpha(color, 0.13) }]}>
+        <Icon name={tx.status} size="sm" tint={color} />
       </View>
       <View style={{ flex: 1 }}>
         <T variant="label">{title}{tx.kind === 'speedup' ? ' (sped up)' : ''}</T>
