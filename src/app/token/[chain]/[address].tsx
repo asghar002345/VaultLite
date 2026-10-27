@@ -1,17 +1,19 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { Aurora } from '@/components/fx/skia';
+import * as Clipboard from 'expo-clipboard';
+import { Guilloche } from '@/components/fx/guilloche';
+import { Icon } from '@/components/icon';
 import { TokenOrb } from '@/components/wallet';
-import { Fonts, Radius, Tabular } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { haptic, useMotion } from '@/motion';
 import { useEffect, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 
-import { ConfirmSheet, EmptyState, ErrorState, LoadingState } from '@/components/states';
-import { Button, Card, Screen, T } from '@/components/ui';
+import { ConfirmSheet, EmptyState, ErrorState, ListRow, LoadingState, Section } from '@/components/states';
+import { Button, Screen, T, TestnetBanner } from '@/components/ui';
 import { getChain, type ChainKey } from '@/config/chains';
 import { NATIVE } from '@/config/tokens';
 import { useBalances } from '@/hooks/use-balances';
@@ -33,41 +35,54 @@ export default function TokenDetail() {
   const bal = q.data?.find((x) => x.chain === token.chain && x.address === token.address)?.balance;
   const explorer =
     token.address === NATIVE ? null : c.family === 'tron' ? `${c.explorerUrl}/#/token20/${token.address}` : `${c.explorerUrl}/token/${token.address}`;
+  const short = (x: string) => (x.length > 14 ? `${x.slice(0, 6)}…${x.slice(-4)}` : x);
   return (
-    <Screen>
-      <View style={{ borderRadius: Radius.xl, borderWidth: 1, borderColor: t.border, backgroundColor: t.surface, padding: 24, alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-        <Aurora intensity={0.6} />
-        {/* "Shared-element-like": the orb pops in with a spring, title follows. Not a true shared transition. */}
-        <Animated.View entering={m.pop()}>
-          <TokenOrb chain={token.chain} symbol={token.symbol} size={72} />
-        </Animated.View>
-        <Animated.View entering={m.enter(1)} style={{ alignItems: 'center' }}>
+    <Screen testID="token-detail">
+      <Stack.Screen options={{ title: token.symbol }} />
+      <Animated.View entering={m.enter(0)} style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+        <TokenOrb chain={token.chain} symbol={token.symbol} size={48} />
+        <View style={{ flex: 1 }}>
           <T variant="title">{token.name}</T>
           <T variant="caption">{c.name}</T>
-        </Animated.View>
+        </View>
+        <TestnetBanner />
+      </Animated.View>
+      <View style={{ borderRadius: Radius.lg, borderWidth: 1, borderColor: t.border, backgroundColor: t.surface, padding: Spacing.lg, gap: Spacing.sm, overflow: 'hidden' }}>
+        <Guilloche />
+        <T variant="overline">Your holding</T>
         {q.isPending ? (
-          <LoadingState rows={1} height={40} label="Loading balance" />
+          <LoadingState rows={1} height={52} label="Loading balance" />
         ) : q.isError ? (
           <ErrorState title="Couldn't load balance" error={q.error} onRetry={() => q.refetch()} />
         ) : (
-          <Animated.View entering={m.enter(2)}>
-            <T style={[{ fontFamily: Fonts.display, fontSize: 36, letterSpacing: -1, color: t.text }, Tabular]}>
-              {bal == null ? '—' : formatAmount(bal, token.decimals)} <T style={{ fontFamily: Fonts.displayMedium, fontSize: 20, color: t.textSecondary }}>{token.symbol}</T>
+          <Animated.View entering={m.enter(1)}>
+            <T variant="hero" testID="token-balance">
+              {bal == null ? '—' : formatAmount(bal, token.decimals, 6)} <T style={{ fontFamily: Fonts.display, fontSize: 22, color: t.primary }}>{token.symbol}</T>
             </T>
           </Animated.View>
         )}
       </View>
-      <Card>
-        <T variant="caption">Contract</T>
-        <T variant="mono" selectable>{token.address === NATIVE ? 'Native gas token' : token.address}</T>
-        {token.source && <T variant="caption">Address source: {token.source}</T>}
-        {token.custom && <T variant="caption">Custom token (verified on-chain when imported)</T>}
-      </Card>
-      {c.family !== 'solana' && <Button icon="send" title={`Send ${token.symbol}`} onPress={() => router.push({ pathname: '/send', params: { chain: token.chain, token: token.address } })} />}
-      <Button variant="secondary" icon="receive" title="Receive" onPress={() => router.push({ pathname: '/receive', params: { chain: token.chain } })} />
-      {explorer && <Button variant="secondary" icon="external" title="View on explorer" onPress={() => WebBrowser.openBrowserAsync(explorer)} />}
-      {token.custom && <Button variant="ghost" icon="trash" title="Remove token" onPress={() => setConfirmRemove(true)} />}
-      {c.faucetUrl && <Button variant="secondary" icon="external" title="Faucet" onPress={() => WebBrowser.openBrowserAsync(c.faucetUrl!)} />}
+      <Section title="Details" group>
+        <ListRow icon="network" title="Network" value={`${c.name}${c.chainId ? ` · ${c.chainId}` : ''}`} />
+        <ListRow icon="key" title="Contract" value={token.address === NATIVE ? 'Native gas token' : short(token.address)} onPress={token.address === NATIVE ? undefined : () => Clipboard.setStringAsync(token.address)} right={token.address === NATIVE ? undefined : <Icon name="copy" size="sm" color="textTertiary" />} />
+        {token.source ? <ListRow icon="info" title="Address source" value={token.source} /> : null}
+        {token.custom ? <ListRow icon="check" title="Custom token" subtitle="Verified on-chain when imported" /> : null}
+      </Section>
+      <View style={{ flexDirection: 'row', gap: Spacing.smd }}>
+        <View style={{ flex: 1 }}>
+          <Button variant="secondary" icon="receive" title="Receive" onPress={() => router.push({ pathname: '/receive', params: { chain: token.chain } })} />
+        </View>
+        {c.family !== 'solana' && (
+          <View style={{ flex: 1 }}>
+            <Button icon="send" title="Send" onPress={() => router.push({ pathname: '/send', params: { chain: token.chain, token: token.address } })} />
+          </View>
+        )}
+      </View>
+      <View style={{ gap: Spacing.xs }}>
+        {explorer && <Button variant="ghost" icon="external" title="View on explorer" onPress={() => WebBrowser.openBrowserAsync(explorer)} />}
+        {c.faucetUrl && <Button variant="ghost" icon="external" title="Get test tokens (faucet)" onPress={() => WebBrowser.openBrowserAsync(c.faucetUrl!)} />}
+        {token.custom && <Button variant="ghost" icon="trash" title="Remove token" onPress={() => setConfirmRemove(true)} />}
+      </View>
       {token.custom && (
         <ConfirmSheet
           visible={confirmRemove}
