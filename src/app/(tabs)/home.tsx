@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Monogram } from '@/components/brand';
@@ -13,6 +13,9 @@ import { EmptyState, ErrorState, LoadingState, Section } from '@/components/stat
 import { previewRows, TokenRow } from '@/components/token-row';
 import { TxRow } from '@/components/tx-row';
 import { T, TestnetBanner, usePressScale } from '@/components/ui';
+import { RefreshHint, useRefreshControl } from '@/components/loading';
+import { Skeleton } from '@/components/wallet';
+import { loadPhase } from '@/lib/loading';
 import { Fonts, Layout, Radius, Spacing, Tabular, TextRoles } from '@/constants/theme';
 import { useBalances } from '@/hooks/use-balances';
 import { useTheme } from '@/hooks/use-theme';
@@ -73,6 +76,15 @@ export default function Home() {
   const favorites = useFavorites();
   const homeMarkets = (favorites.length ? favorites : ['BTCUSDT', 'ETHUSDT']).slice(0, 3);
   const mk = useTickers(homeMarkets);
+  // Pull-to-refresh spins only for the user's pull; polling/focus refetches show the quiet RefreshHint instead.
+  const pull = useRefreshControl(() =>
+    Promise.all([
+      qc.refetchQueries({ queryKey: ['balances'], type: 'active' }),
+      qc.refetchQueries({ queryKey: ['history'], type: 'active' }),
+      qc.refetchQueries({ queryKey: ['market', 'rest'], type: 'active' }),
+    ]),
+  );
+  const phase = loadPhase(q);
   if (!accounts) return null;
   const usdcRate = usdc.ticker && usdc.freshness !== 'stale' ? Number(usdc.ticker.last) : null;
   const totalR = stableTotalUsdt(visible, usdcRate);
@@ -84,18 +96,7 @@ export default function Home() {
       <ScrollView
         testID="home"
         contentContainerStyle={[s.pad, { paddingHorizontal: pad, paddingBottom: tabInset, maxWidth: Layout.maxContent, width: '100%', alignSelf: 'center' }]}
-        refreshControl={
-          <RefreshControl
-            tintColor={t.primary}
-            refreshing={q.isRefetching}
-            onRefresh={() => {
-              haptic.light();
-              qc.invalidateQueries({ queryKey: ['balances'] });
-              qc.invalidateQueries({ queryKey: ['history'] });
-              qc.invalidateQueries({ queryKey: ['market', 'rest'] });
-            }}
-          />
-        }>
+        refreshControl={pull.control}>
         <View style={s.topRow}>
           <View style={s.brand}>
             <Monogram size={32} />
@@ -110,7 +111,11 @@ export default function Home() {
         <View style={[s.hero, { borderColor: t.border, backgroundColor: t.surface }]}>
           <Guilloche />
           <T variant="overline">Test stablecoins · in USDT</T>
-          {total === null ? (
+          {phase === 'skeleton' ? (
+            <View testID="total-loading" style={{ width: 200 }}>
+              <Skeleton raised height={56} />
+            </View>
+          ) : total === null ? (
             <T testID="total" variant="hero" accessibilityLabel="Total unavailable: USDC to USDT rate unavailable">—</T>
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm }}>
@@ -119,7 +124,7 @@ export default function Home() {
             </View>
           )}
           <T variant="footnote" testID="total-basis">
-            {total === null ? 'USDC/USDT rate unavailable — not estimated' : totalR.usesRate ? `USDC at Binance USDC/USDT ${usdc.ticker ? Number(usdc.ticker.last).toFixed(4) : ''} · mainnet reference` : 'Testnet tokens have no market value'}
+            {phase === 'skeleton' ? 'Loading balances…' : total === null ? 'USDC/USDT rate unavailable — not estimated' : totalR.usesRate ? `USDC at Binance USDC/USDT ${usdc.ticker ? Number(usdc.ticker.last).toFixed(4) : ''} · mainnet reference` : 'Testnet tokens have no market value'}
           </T>
           <T variant="mono" style={{ color: t.textTertiary }}>
             {accounts.evm.address.slice(0, 6)}…{accounts.evm.address.slice(-4)}
@@ -149,8 +154,9 @@ export default function Home() {
               <T variant="overline" style={{ color: t.primary }}>View all{q.data ? ` (${visible.length})` : ''}</T>
             </Pressable>
           }>
-          {q.isPending && <LoadingState rows={4} height={72} label="Loading balances" />}
-          {q.isError && <ErrorState title="Couldn't load balances" error={q.error} onRetry={() => q.refetch()} />}
+          <RefreshHint active={phase === 'refreshing' && !pull.refreshing} label="Updating balances…" testID="home-refresh-hint" />
+          {phase === 'skeleton' && <LoadingState rows={4} height={72} label="Loading balances" />}
+          {phase === 'error' && <ErrorState title="Couldn't load balances" error={q.error} onRetry={() => q.refetch()} />}
           {q.isSuccess && preview.length === 0 && (
             <EmptyState icon="wallet" title="No networks shown" body="All networks are hidden. Show them again in Settings → Networks." action={{ label: 'Networks', onPress: () => router.push('/settings/networks') }} />
           )}

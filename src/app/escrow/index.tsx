@@ -13,6 +13,7 @@ import { roleOf } from '@/modules/escrow';
 import { ESCROW_CHAIN, ESCROW_USDC, useEscrow } from '@/modules/escrow/use-escrow';
 import { MilestoneTrack, StatusPill } from '@/modules/escrow/ui';
 import { useMotion } from '@/motion';
+import { useRefreshControl } from '@/components/loading';
 
 export default function EscrowList() {
   const { service, me } = useEscrow();
@@ -21,8 +22,9 @@ export default function EscrowList() {
   const cols = gridColumns(Math.min(bp.width, Layout.maxContentWide));
   const list = useQuery({ queryKey: ['escrows', me], enabled: !!me, queryFn: () => service.listForAccount(ESCROW_CHAIN, me!) });
   const credit = useQuery({ queryKey: ['escrow-withdrawable', me], enabled: !!me, queryFn: () => service.withdrawable(ESCROW_CHAIN, me!, ESCROW_USDC) });
+  const pull = useRefreshControl(() => Promise.all([list.refetch(), credit.refetch()]));
   return (
-    <Screen wide testID="escrow-list">
+    <Screen wide testID="escrow-list" refreshControl={pull.control}>
       <TestnetBanner />
       <T variant="caption">Milestone escrow on Base Sepolia · USDC</T>
       <Button title="New escrow" icon="plus" testID="escrow-new" onPress={() => router.push('/escrow/create')} />

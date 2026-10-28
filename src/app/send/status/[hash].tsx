@@ -77,14 +77,14 @@ function ReplaceActions({ rec, onDone }: { rec: TxRecord; onDone: (hash: string)
   const { withKeys } = useSession();
   const history = useHistory();
   const auth = useReauth();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | 'speedup' | 'cancel'>(false);
   const [err, setErr] = useState<string | null>(null);
 
   const run = async (mode: 'speedup' | 'cancel') => {
     setErr(null);
+    setBusy(mode);
     const a = await auth.verify();
-    if (a) return setErr(a);
-    setBusy(true);
+    if (a) { setBusy(false); return setErr(a); }
     try {
       const chain = rec.chain as Parameters<typeof marketFee>[0];
       const fees = bumpFees(
@@ -127,8 +127,8 @@ function ReplaceActions({ rec, onDone }: { rec: TxRecord; onDone: (hash: string)
       <T variant="caption">Stuck? Replace it using the same nonce (fees +12.5% or current market, whichever is higher).</T>
       {auth.needsPin && <Input value={auth.pin} onChangeText={auth.setPin} placeholder="PIN" secureTextEntry keyboardType="number-pad" maxLength={6} />}
       {err && <Notice tone="danger">{err}</Notice>}
-      <Button title={busy ? 'Working…' : 'Speed up'} disabled={busy || !auth.ready} onPress={() => run('speedup')} />
-      <Button variant="danger" title="Cancel transaction" disabled={busy || !auth.ready} onPress={() => run('cancel')} />
+      <Button title={busy === 'speedup' ? 'Speeding up…' : 'Speed up'} loading={busy === 'speedup'} disabled={!!busy || !auth.ready} onPress={() => run('speedup')} />
+      <Button variant="danger" title={busy === 'cancel' ? 'Cancelling…' : 'Cancel transaction'} loading={busy === 'cancel'} disabled={!!busy || !auth.ready} onPress={() => run('cancel')} />
     </Card>
   );
 }

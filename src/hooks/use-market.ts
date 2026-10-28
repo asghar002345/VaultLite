@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { get24h, getKlines, INTERVALS, marketRetry, marketRetryDelay, type Candle, type KlineInterval, type SymbolInfo, type Ticker } from '@/services/market/binance-rest';
@@ -152,7 +152,8 @@ export function useAssetQuote(asset: { symbol: string; custom?: boolean } | null
 /** Candles via REST + live candle via WS kline stream while mounted. */
 export function useKlines(symbol: string, interval: KlineInterval) {
   const limit = INTERVALS.find((i) => i.key === interval)?.limit ?? 100;
-  const q = useQuery({ queryKey: MK.klines(symbol, interval), staleTime: 60_000, retry: marketRetry, retryDelay: marketRetryDelay, queryFn: ({ signal }) => getKlines(symbol, interval, limit, { signal }) });
+  // keepPreviousData: a range switch keeps the old chart on screen (dimmed by LoadingOverlay) instead of blanking it.
+  const q = useQuery({ queryKey: MK.klines(symbol, interval), placeholderData: keepPreviousData, staleTime: 60_000, retry: marketRetry, retryDelay: marketRetryDelay, queryFn: ({ signal }) => getKlines(symbol, interval, limit, { signal }) });
   useEffect(() => retainStreams([klineStream(symbol, interval)]), [symbol, interval]);
   return q;
 }

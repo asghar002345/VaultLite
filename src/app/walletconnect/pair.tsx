@@ -39,7 +39,8 @@ export default function Pair() {
           testID="wc-pair-submit"
           icon="connect"
           title={phase.k === 'pairing' ? 'Pairing…' : 'Connect'}
-          disabled={!valid || phase.k === 'pairing' || !isReownConfigured()}
+          loading={phase.k === 'pairing'}
+          disabled={!valid || !isReownConfigured()}
           onPress={() => {
             setPhase({ k: 'pairing' });
             pair(uri.trim())

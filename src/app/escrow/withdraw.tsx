@@ -52,7 +52,7 @@ export default function Withdraw() {
           </Card>
           {auth.needsPin ? <Input testID="escrow-pin" placeholder="PIN" value={auth.pin} onChangeText={auth.setPin} secureTextEntry keyboardType="number-pad" maxLength={6} /> : null}
           {error ? <Notice tone="danger">{error}</Notice> : null}
-          <Button testID="escrow-withdraw-go" icon="withdraw" title={busy ? 'Withdrawing…' : 'Withdraw USDC'} disabled={busy || !auth.ready} onPress={go} />
+          <Button testID="escrow-withdraw-go" icon="withdraw" title={busy ? 'Withdrawing…' : 'Withdraw USDC'} loading={busy} disabled={!auth.ready} onPress={go} />
         </>
       ) : null}
     </Screen>

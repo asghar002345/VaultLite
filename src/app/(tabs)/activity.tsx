@@ -18,6 +18,7 @@ import { useSession } from '@/vault/session';
 import { useTheme } from '@/hooks/use-theme';
 import { alpha, Radius, Spacing } from '@/constants/theme';
 import { Icon } from '@/components/icon';
+import { useRefreshControl } from '@/components/loading';
 import { ConfirmSheet, EmptyState, ErrorState, LoadingState, Notice, Section } from '@/components/states';
 import { SegmentedPills } from '@/components/wallet';
 import { groupByDay, matchesFilter, type ActivityFilter } from '@/lib/activity-groups';
@@ -70,13 +71,15 @@ export default function Activity() {
   const unspammed = showHidden ? rows : rows.filter((r) => r.verdict?.level !== 'spam');
   const visible = unspammed.filter((r) => matchesFilter({ at: r.at, direction: r.out ? 'out' : 'in', pending: r.out?.status === 'pending' }, filter));
   const groups = groupByDay(visible, nowMs());
+  const refresh = () => Promise.all([inc.refetch(), h.refetch()]);
+  const pull = useRefreshControl(refresh);
 
   return (
-    <Screen tab testID="activity">
+    <Screen tab testID="activity" refreshControl={pull.control}>
       <T variant="title">Activity</T>
       <SegmentedPills<ActivityFilter> testID="activity-filter" items={[{ key: 'all', label: 'All' }, { key: 'sent', label: 'Sent' }, { key: 'received', label: 'Received' }, { key: 'pending', label: 'Pending' }]} value={filter} onChange={setFilter} />
       {inc.isPending && <LoadingState rows={3} label="Loading incoming transfers" />}
-      {inc.isError && <ErrorState title="Couldn't load incoming transfers" error={inc.error} onRetry={() => inc.refetch()} />}
+      {inc.isError && !inc.data && <ErrorState title="Couldn't load incoming transfers" error={inc.error} onRetry={() => inc.refetch()} />}
       {inc.data?.errors.map((e) => <Notice key={e} tone="warning">Couldn&apos;t load {e}</Notice>)}
       {hiddenCount > 0 && (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -101,7 +104,7 @@ export default function Activity() {
       <Notice>
         Sent: from this device. Received: keyless explorers for {INCOMING_CHAINS.map((c) => CHAINS[c].name).join(', ')} (Amoy and BSC Testnet need explorer API keys, so they aren&apos;t shown).
       </Notice>
-      <Button variant="secondary" icon="refresh" title="Refresh" onPress={() => { inc.refetch(); h.refetch(); }} />
+      <Button testID="activity-refresh" variant="secondary" icon="refresh" title="Refresh" onPress={refresh} />
       {h.list.length > 0 && <Button variant="ghost" icon="trash" title="Clear local send history" onPress={() => setConfirmClear(true)} />}
       <ConfirmSheet
         visible={confirmClear}

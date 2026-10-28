@@ -95,11 +95,11 @@ export default function EscrowActionScreen() {
           </Card>
           {auth.needsPin && <Input testID="escrow-pin" placeholder="PIN" value={auth.pin} onChangeText={auth.setPin} secureTextEntry keyboardType="number-pad" maxLength={6} />}
           {!auth.ready && <Notice tone="disabled">Enter your PIN to confirm.</Notice>}
-          {step.k === 'sending' && <LoadingState rows={1} label="Waiting for confirmation on Base Sepolia…" />}
+          {step.k === 'sending' && <Notice>Waiting for confirmation on Base Sepolia…</Notice>}
           {copy.danger ? (
             <HoldToConfirm label={`Hold to ${copy.verb.toLowerCase()}`} disabled={step.k === 'sending' || !auth.ready} onConfirm={() => run(action)} ms={2000} />
           ) : (
-            <Button testID="escrow-action-confirm" title={step.k === 'sending' ? 'Confirming…' : copy.verb} disabled={step.k === 'sending' || !auth.ready} onPress={() => run(action)} />
+            <Button testID="escrow-action-confirm" title={step.k === 'sending' ? 'Confirming…' : copy.verb} loading={step.k === 'sending'} disabled={!auth.ready} onPress={() => run(action)} />
           )}
           <Button variant="ghost" title="Back" disabled={step.k === 'sending'} onPress={() => setStep({ k: 'summary' })} />
         </>

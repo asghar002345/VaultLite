@@ -57,9 +57,9 @@ function RequestView({ item }: { item: PendingRequest }) {
       {err && <Notice tone="danger">{err}</Notice>}
       {!auth.ready && !busy && <Notice tone="disabled">Enter your PIN to enable approval.</Notice>}
       {danger ? (
-        <HoldToConfirm label="Hold to approve anyway" disabled={busy || !auth.ready} onConfirm={approve} ms={2500} />
+        <HoldToConfirm busyLabel="Approving…" label="Hold to approve anyway" disabled={busy || !auth.ready} onConfirm={approve} ms={2500} />
       ) : (
-        <Button testID="wc-approve" icon="check" title={busy ? 'Working…' : 'Approve'} disabled={busy || !auth.ready} onPress={approve} />
+        <Button testID="wc-approve" icon="check" title={busy ? 'Working…' : 'Approve'} loading={busy} disabled={!auth.ready} onPress={approve} />
       )}
       <Button testID="wc-reject" variant="secondary" icon="close" title="Reject" disabled={busy} onPress={reject} />
     </Screen>

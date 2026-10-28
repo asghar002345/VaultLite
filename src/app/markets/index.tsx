@@ -5,7 +5,8 @@ import { Pressable, View } from 'react-native';
 import { Icon } from '@/components/icon';
 import { FreshnessLabel, MarketRow, REFERENCE_LABEL } from '@/components/market';
 import { EmptyState, ErrorState, LoadingState, Notice } from '@/components/states';
-import { Input, Screen, T } from '@/components/ui';
+import { Button, Input, Screen, T } from '@/components/ui';
+import { RefreshHint, useRefreshControl } from '@/components/loading';
 import { SegmentedPills } from '@/components/wallet';
 import { HitTarget, Spacing } from '@/constants/theme';
 import { useTickers } from '@/hooks/use-market';
@@ -41,6 +42,9 @@ export default function Markets() {
   const loading = (m.info.isPending || m.rest.isPending) && list.length === 0 && category !== 'favorites';
   const error: unknown = list.length ? null : (m.info.error ?? m.rest.error ?? null);
 
+  const refresh = () => Promise.all([m.info.refetch(), m.rest.refetch()]);
+  const pull = useRefreshControl(refresh);
+
   const pickSort = (k: SortKey) => {
     if (k === sort) setDir(dir === 'desc' ? 'asc' : 'desc');
     else {
@@ -50,7 +54,7 @@ export default function Markets() {
   };
 
   return (
-    <Screen testID="markets">
+    <Screen testID="markets" refreshControl={pull.control}>
       <View style={{ gap: Spacing.xs }}>
         <T variant="footnote">{REFERENCE_LABEL} · USDT pairs · not your balances</T>
         <FreshnessLabel testID="markets-freshness" freshness={freshnessOf(newest || null, m.now)} receivedAt={newest || undefined} offline={offline} />
@@ -87,6 +91,8 @@ export default function Markets() {
         })}
       </View>
       {offline && <Notice tone="warning">You&apos;re offline. Prices pause and resume when you reconnect.</Notice>}
+      {/* Some pairs already cached (e.g. from Home) while the full list is still loading: keep them, hint the rest. */}
+      <RefreshHint testID="markets-loading-more" label="Loading all markets…" active={!loading && !pull.refreshing && category !== 'favorites' && (m.info.isPending || m.rest.isPending)} />
       {loading && <LoadingState rows={6} height={64} label="Loading markets" />}
       {error ? <ErrorState title="Couldn't load Binance market data" error={error} onRetry={() => { m.info.refetch(); m.rest.refetch(); }} /> : null}
       {!loading && !error && list.length === 0 && (
@@ -107,6 +113,7 @@ export default function Markets() {
           />
         ))}
       </View>
+      {list.length > 0 && <Button testID="markets-refresh" variant="ghost" icon="refresh" title="Refresh prices" onPress={refresh} />}
       <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
         <Icon name="info" size="sm" color="textTertiary" />
         <T variant="footnote" style={{ flex: 1 }}>Public Binance spot data, no account or API key. VaultLite holds testnet assets only; these prices are not their value.</T>

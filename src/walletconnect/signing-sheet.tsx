@@ -7,7 +7,7 @@ import { formatUnits } from 'viem';
 
 import { Icon } from '@/components/icon';
 import { Button, Card, Input, T } from '@/components/ui';
-import { HoldToConfirm } from '@/components/wallet';
+import { HoldToConfirm, Skeleton } from '@/components/wallet';
 import { useReauth } from '@/hooks/use-reauth';
 import { useSecureScreen } from '@/hooks/use-secure-screen';
 import { Layout } from '@/constants/theme';
@@ -57,7 +57,7 @@ export function FeePreview({ a }: { a: Extract<PendingRequest['analysis'], { kin
   return (
     <Card>
       <T variant="caption">Network fee</T>
-      {q.isPending && <T variant="caption">Estimating…</T>}
+      {q.isPending && <Skeleton raised height={40} />}
       {q.isError && <T variant="error">Estimate failed: {humanizeError(q.error)} — the transaction will likely fail.</T>}
       {q.data && (
         <>
@@ -161,9 +161,12 @@ export function useRequestActions(item: PendingRequest, onClose: () => void) {
   };
   const approve = async () => {
     setErr(null);
+    setBusy(true); // before the PIN check so a second tap can't start a parallel approval
     const authErr = await auth.verify();
-    if (authErr) return setErr(authErr);
-    setBusy(true);
+    if (authErr) {
+      setBusy(false);
+      return setErr(authErr);
+    }
     try {
       const result = await withKeys((k) => executeRequest(a as never, k));
       if (a.kind === 'send_tx' && typeof result === 'string' && accounts) {
@@ -210,9 +213,9 @@ export function SigningSheet({ item, onClose }: { item: PendingRequest; onClose:
             {err && <T variant="error">{err}</T>}
           </ScrollView>
           {danger ? (
-            <HoldToConfirm label="Hold to approve anyway" disabled={busy || !auth.ready} onConfirm={approve} ms={2500} />
+            <HoldToConfirm busyLabel="Approving…" label="Hold to approve anyway" disabled={busy || !auth.ready} onConfirm={approve} ms={2500} />
           ) : (
-            <Button title={busy ? 'Working…' : 'Approve'} disabled={busy || !auth.ready} onPress={approve} />
+            <Button testID="wc-sheet-approve" title={busy ? 'Working…' : 'Approve'} loading={busy} disabled={!auth.ready} onPress={approve} />
           )}
           <Button variant="secondary" title="Reject" disabled={busy} onPress={reject} />
         </Card>

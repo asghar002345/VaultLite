@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -7,8 +8,9 @@ import { FreshnessLabel, KlineChart, PriceChange, REFERENCE_LABEL, Stat } from '
 import { EmptyState, ErrorState, LoadingState, Section } from '@/components/states';
 import { Screen, T } from '@/components/ui';
 import { SegmentedPills, Skeleton } from '@/components/wallet';
+import { LoadingOverlay, useRefreshControl } from '@/components/loading';
 import { HitTarget, Radius, Spacing } from '@/constants/theme';
-import { useKlines, useTickers } from '@/hooks/use-market';
+import { MK, useKlines, useTickers } from '@/hooks/use-market';
 import { useTheme } from '@/hooks/use-theme';
 import { useOffline } from '@/services/market/offline';
 import { INTERVALS, type KlineInterval } from '@/services/market/binance-rest';
@@ -27,6 +29,8 @@ export default function MarketDetail() {
   const [interval, setIv] = useState<KlineInterval>('1h');
   const base = baseOf(sym);
   const fav = favorites.includes(sym);
+  const qc = useQueryClient();
+  const pull = useRefreshControl(() => Promise.all([m.rest.refetch(), qc.refetchQueries({ queryKey: MK.klines(sym, interval) })]));
   const header = (
     <Stack.Screen
       options={{
@@ -50,7 +54,7 @@ export default function MarketDetail() {
   const tk = q.ticker;
   const dp = q.tickDecimals;
   return (
-    <Screen testID="market-detail">
+    <Screen testID="market-detail" refreshControl={pull.control}>
       {header}
       <View style={{ gap: Spacing.xs }}>
         <T variant="footnote">{REFERENCE_LABEL} · {sym}</T>
@@ -79,12 +83,12 @@ export default function MarketDetail() {
 
       <Section title="24h">
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', borderWidth: 1, borderColor: t.border, borderRadius: Radius.lg, padding: Spacing.md, backgroundColor: t.surface }}>
-          <Stat label="Bid" testID="stat-bid" value={tk?.bid ? formatPrice(tk.bid, dp) : '—'} />
-          <Stat label="Ask" testID="stat-ask" value={tk?.ask ? formatPrice(tk.ask, dp) : '—'} />
-          <Stat label="High" value={tk ? formatPrice(tk.high, dp) : '—'} />
-          <Stat label="Low" value={tk ? formatPrice(tk.low, dp) : '—'} />
-          <Stat label={`Volume (${base})`} value={tk ? formatCompact(Number(tk.baseVolume)) : '—'} />
-          <Stat label="Volume (USDT)" value={tk ? formatCompact(tk.quoteVolume) : '—'} />
+          <Stat label="Bid" testID="stat-bid" value={tk ? (tk.bid ? formatPrice(tk.bid, dp) : '—') : null} />
+          <Stat label="Ask" testID="stat-ask" value={tk ? (tk.ask ? formatPrice(tk.ask, dp) : '—') : null} />
+          <Stat label="High" value={tk ? formatPrice(tk.high, dp) : null} />
+          <Stat label="Low" value={tk ? formatPrice(tk.low, dp) : null} />
+          <Stat label={`Volume (${base})`} value={tk ? formatCompact(Number(tk.baseVolume)) : null} />
+          <Stat label="Volume (USDT)" value={tk ? formatCompact(tk.quoteVolume) : null} />
         </View>
       </Section>
       <T variant="footnote">Source: Binance public spot API. Display only — VaultLite does not trade, and testnet balances have no market value.</T>
@@ -95,15 +99,18 @@ export default function MarketDetail() {
 function Chart({ symbol, interval, dp }: { symbol: string; interval: KlineInterval; dp: number | null }) {
   const k = useKlines(symbol, interval);
   const label = INTERVALS.find((i) => i.key === interval)?.label ?? interval;
+  // First load: skeleton. Range switch: keep the previous chart and dim it under an overlay (placeholderData).
   if (k.isPending) return <LoadingState rows={1} height={200} label="Loading chart" />;
-  if (k.isError) return <ErrorState title="Couldn't load chart" error={k.error} onRetry={() => k.refetch()} />;
+  if (k.isError && !k.isPlaceholderData) return <ErrorState title="Couldn't load chart" error={k.error} onRetry={() => k.refetch()} />;
   if (!k.data || k.data.length < 2) return <EmptyState icon="markets" title="No chart data" body="Binance returned no candles for this range." />;
   const first = k.data[0].close;
   const last = k.data[k.data.length - 1].close;
   const pct = first ? ((last - first) / first) * 100 : null;
   const hi = Math.max(...k.data.map((c) => c.high));
   const lo = Math.min(...k.data.map((c) => c.low));
+  const switching = k.isPlaceholderData && k.isFetching;
   return (
+    <LoadingOverlay active={switching} label={`Loading ${label}`} testID="chart-loading">
     <View style={{ gap: Spacing.sm }}>
       <View testID="range-summary" style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' }}>
         <T variant="footnote">{label} range</T>
@@ -112,5 +119,6 @@ function Chart({ symbol, interval, dp }: { symbol: string; interval: KlineInterv
       </View>
       <KlineChart candles={k.data} label={`${label} price chart, ${k.data.length} candles, ${spokenPct(pct)} over the range, high ${formatPrice(String(hi), dp)}, low ${formatPrice(String(lo), dp)}`} />
     </View>
+    </LoadingOverlay>
   );
 }

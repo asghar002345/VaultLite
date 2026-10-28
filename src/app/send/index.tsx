@@ -117,7 +117,7 @@ export default function Send() {
           />
           <T style={{ fontFamily: Fonts.display, fontSize: 24, color: t.primary }}>{token.symbol}</T>
         </View>
-        <T variant="caption" style={{ fontFamily: Fonts.mono }}>Available: {bal === null ? '—' : `${formatAmount(bal, token.decimals)} ${token.symbol}`}</T>
+        <T variant="caption" style={{ fontFamily: Fonts.mono }}>Available: {bal === null ? (balances.isPending ? 'loading…' : '—') : `${formatAmount(bal, token.decimals)} ${token.symbol}`}</T>
         {amountError ? <T variant="error">{amountError}</T> : null}
       </View>
       <Keypad onKey={onKey} testIDPrefix="amt" left={{ key: '.', label: '.', accessibilityLabel: 'Decimal point' }} />

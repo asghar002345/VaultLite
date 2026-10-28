@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { HoldRing } from '@/components/fx/skia';
-import { usePressScale } from '@/components/ui';
+import { Spinner, usePressScale } from '@/components/ui';
 import { alpha, ChainHue, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Durations, haptic, Springs, useMotion } from '@/motion';
@@ -89,7 +89,8 @@ export function SegmentedPills<K extends string>({ items, value, onChange, testI
 }
 
 /** Shimmer skeleton: a translucent band sweeps across (UI thread). Reduced motion: static block. */
-export function Skeleton({ height = 56 }: { height?: number }) {
+/** `raised`: for skeletons placed on a surface card (keeps contrast). */
+export function Skeleton({ height = 56, raised }: { height?: number; raised?: boolean }) {
   const t = useTheme();
   const { reduced } = useMotion();
   const [w, setW] = useState(0);
@@ -106,8 +107,8 @@ export function Skeleton({ height = 56 }: { height?: number }) {
       accessibilityLabel="Loading"
       accessibilityRole="progressbar"
       onLayout={(e) => setW(e.nativeEvent.layout.width)}
-      style={{ height, borderRadius: Radius.md, backgroundColor: t.surface, overflow: 'hidden' }}>
-      {!reduced && w > 0 && <Animated.View style={[s.band, { width: w * 0.6, backgroundColor: t.surfaceRaised }, band]} />}
+      style={{ height, borderRadius: Radius.md, backgroundColor: raised ? t.surfaceRaised : t.surface, overflow: 'hidden' }}>
+      {!reduced && w > 0 && <Animated.View style={[s.band, { width: w * 0.6, backgroundColor: raised ? t.border : t.surfaceRaised }, band]} />}
     </View>
   );
 }
@@ -162,7 +163,7 @@ function PinDot({ on, color, border }: { on: boolean; color: string; border: str
  * Press and hold for `ms` to fire. Releasing early cancels. Progress drives a Skia ring and a
  * fill (both UI thread); haptic ticks at 33 % / 66 %, success at 100 %.
  */
-export function HoldToConfirm({ label, onConfirm, disabled, ms = Durations.hold, danger }: { label: string; onConfirm: () => void; disabled?: boolean; ms?: number; danger?: boolean }) {
+export function HoldToConfirm({ label, onConfirm, disabled, ms = Durations.hold, danger, busyLabel = 'Sending…' }: { label: string; onConfirm: () => unknown; disabled?: boolean; ms?: number; danger?: boolean; busyLabel?: string }) {
   const t = useTheme();
   const accent = danger ? t.danger : t.primary;
   const p = useSharedValue(0);
@@ -217,8 +218,8 @@ export function HoldToConfirm({ label, onConfirm, disabled, ms = Durations.hold,
       style={[s.hold, { backgroundColor: t.surface, borderColor: danger ? alpha(t.danger, 0.6) : t.border, opacity: disabled ? 0.4 : 1 }]}>
       <Animated.View style={[s.holdFill, { backgroundColor: alpha(accent, 0.22) }, fill]} />
       <View style={s.holdRow}>
-        <HoldRing progress={p} size={32} color={accent} track={t.border} />
-        <Text style={{ color: t.text, fontFamily: Fonts.uiMedium, fontSize: FontSize.body }}>{busy ? 'Sending…' : label}</Text>
+        {busy ? <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}><Spinner color={accent} testID="hold-spinner" /></View> : <HoldRing progress={p} size={32} color={accent} track={t.border} />}
+        <Text style={{ color: t.text, fontFamily: Fonts.uiMedium, fontSize: FontSize.body }}>{busy ? busyLabel : label}</Text>
       </View>
     </Pressable>
   );

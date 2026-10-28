@@ -91,7 +91,7 @@ export function MarketRow({ q, fav, onPress, onToggleFav }: { q: Quote; fav: boo
         <T variant="footnote">Vol {q.ticker ? compactUsd(q.ticker.quoteVolume) : '—'}</T>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        {q.ticker ? <T variant="number">{formatPrice(q.ticker.last, q.tickDecimals)}</T> : <View style={{ width: 80 }}><Skeleton height={18} /></View>}
+        {q.ticker ? <T variant="number">{formatPrice(q.ticker.last, q.tickDecimals)}</T> : <View style={{ width: 80 }}><Skeleton raised height={18} /></View>}
         <PriceChange pct={q.ticker?.changePct} />
       </View>
     </Pressable>
@@ -131,11 +131,12 @@ export function KlineChart({ candles, height = 200, label }: { candles: Candle[]
 }
 
 /** Label/value stat cell (bid/ask/high/low/volume). */
-export function Stat({ label, value, testID }: { label: string; value: string; testID?: string }) {
+/** 24h stat cell. `value === null` = still loading → skeleton bar instead of a misleading dash. */
+export function Stat({ label, value, testID }: { label: string; value: string | null; testID?: string }) {
   return (
-    <View style={s.stat} accessible accessibilityLabel={`${label} ${value}`}>
+    <View style={s.stat} accessible accessibilityLabel={`${label} ${value ?? 'loading'}`}>
       <T variant="footnote">{label}</T>
-      <T testID={testID} variant="number">{value}</T>
+      {value === null ? <View testID={testID ? `${testID}-loading` : undefined} style={{ width: 88, marginTop: 4 }}><Skeleton raised height={18} /></View> : <T testID={testID} variant="number">{value}</T>}
     </View>
   );
 }

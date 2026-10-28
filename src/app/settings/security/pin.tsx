@@ -34,6 +34,7 @@ export default function ChangePin() {
       <Button
         testID="pin-submit"
         title={busy ? 'Re-encrypting…' : 'Change PIN'}
+        loading={busy}
         disabled={!canSubmit}
         onPress={async () => {
           setBusy(true); setErr(null);

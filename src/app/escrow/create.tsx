@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 
-import { Field, ListRow, LoadingState, Notice, Section } from '@/components/states';
+import { Field, ListRow, Notice, Section } from '@/components/states';
 import { Button, Input, Screen, T, TestnetBanner } from '@/components/ui';
 import { validateAddress } from '@/lib/address';
 import { parseAmount } from '@/lib/amount';
@@ -64,8 +64,8 @@ export default function CreateEscrow() {
         <Notice>Creating does not move funds. You fund it from the escrow screen in a separate step.</Notice>
         {auth.needsPin ? <Input testID="escrow-pin" placeholder="PIN" value={auth.pin} onChangeText={auth.setPin} secureTextEntry keyboardType="number-pad" maxLength={6} /> : null}
         {error ? <Notice tone="danger">{error}</Notice> : null}
-        {busy && <LoadingState rows={1} label="Creating on Base Sepolia…" />}
-        <Button title={busy ? 'Creating…' : 'Create escrow'} icon="check" testID="escrow-create" disabled={busy || !auth.ready} onPress={submit} />
+        {busy && <Notice>Creating on Base Sepolia… this takes a few seconds.</Notice>}
+        <Button title={busy ? 'Creating…' : 'Create escrow'} icon="check" testID="escrow-create" loading={busy} disabled={!auth.ready} onPress={submit} />
         <Button variant="ghost" title="Edit" disabled={busy} onPress={() => setStep('form')} />
       </Screen>
     );

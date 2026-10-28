@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextProps, type ViewStyle } from 'react-native';
+import { useState, type ReactElement, type ReactNode } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextProps, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,6 +8,7 @@ import { Fonts, FontSize, Layout, MaxScale, Radius, Spacing, Tabular, TextRoles,
 import { useTheme } from '@/hooks/use-theme';
 import { Icon, type IconName } from '@/components/icon';
 import { haptic, Springs, useMotion } from '@/motion';
+import { singleFlight } from '@/lib/loading';
 
 export function Screen({
   children,
@@ -16,8 +17,11 @@ export function Screen({
   tab,
   wide,
   testID,
+  refreshControl,
 }: {
   children: ReactNode;
+  /** Pull-to-refresh (see useRefreshControl). Scroll screens only. */
+  refreshControl?: ReactElement;
   scroll?: boolean;
   backdrop?: ReactNode;
   /** Tab root: pads the bottom so content clears the floating tab bar. */
@@ -43,7 +47,7 @@ export function Screen({
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: t.background }]} edges={tab ? ['top', 'left', 'right'] : ['left', 'right', 'bottom']}>
       {backdrop}
-      {scroll ? <ScrollView contentContainerStyle={styles.grow} keyboardShouldPersistTaps="handled">{body}</ScrollView> : body}
+      {scroll ? <ScrollView contentContainerStyle={styles.grow} keyboardShouldPersistTaps="handled" refreshControl={refreshControl as never}>{body}</ScrollView> : body}
     </SafeAreaView>
   );
 }
@@ -89,20 +93,41 @@ export function usePressScale(to = 0.96) {
   };
 }
 
+/** Inline spinner. Reduced motion: a static clock glyph instead of a rotating indicator. */
+export function Spinner({ color, size = 'small', testID = 'spinner' }: { color?: string; size?: 'small' | 'large'; testID?: string }) {
+  const t = useTheme();
+  const { reduced } = useMotion();
+  const c = color ?? t.textSecondary;
+  if (reduced)
+    return (
+      <View testID={testID} accessibilityRole="progressbar" accessibilityLabel="Loading">
+        <Icon name="pending" size={size === 'large' ? 'lg' : 'sm'} tint={c} />
+      </View>
+    );
+  return <ActivityIndicator testID={testID} size={size} color={c} accessibilityLabel="Loading" />;
+}
+
+/**
+ * Button. `loading`: inline spinner replaces the icon, the button is disabled and announces busy.
+ * Async onPress is single-flight: further taps are ignored until its promise settles (no double submits),
+ * and the spinner shows for that time even if the caller doesn't pass `loading`.
+ */
 export function Button({
   title,
   onPress,
   variant = 'primary',
   disabled,
+  loading,
   testID,
   accessibilityLabel,
   accessibilityHint,
   icon,
 }: {
   title: string;
-  onPress: () => void;
+  onPress: () => unknown;
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   disabled?: boolean;
+  loading?: boolean;
   testID?: string;
   accessibilityLabel?: string;
   accessibilityHint?: string;
@@ -110,33 +135,44 @@ export function Button({
 }) {
   const t = useTheme();
   const press = usePressScale();
+  const [flight] = useState(() => singleFlight((fn: () => unknown) => fn()));
+  const [pending, setPending] = useState(false);
+  const busy = !!loading || pending;
+  const off = !!disabled || busy;
   const bg = { primary: t.primary, danger: t.danger, secondary: t.surfaceRaised, ghost: 'transparent' }[variant];
   const fg = variant === 'secondary' || variant === 'ghost' ? t.text : variant === 'danger' ? t.onDanger : t.onPrimary;
+  const label = variant === 'ghost' ? t.textSecondary : fg;
   return (
     <AnimatedPressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: off, busy }}
+      disabled={off}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       onPress={() => {
+        if (off || flight.busy()) return;
         if (variant === 'danger') haptic.medium();
         else haptic.light();
-        onPress();
+        const r = flight(onPress);
+        if (r) {
+          setPending(true);
+          r.catch(() => {}).finally(() => setPending(false));
+        }
       }}
       style={[
         styles.btn,
-        { backgroundColor: bg, opacity: disabled ? 0.38 : 1 },
+        // Busy keeps full colour (it's progress, not unavailability); only plain disabled dims.
+        { backgroundColor: bg, opacity: disabled && !busy ? 0.38 : busy ? 0.85 : 1 },
         variant === 'secondary' && { borderWidth: 1, borderColor: t.border },
         variant === 'ghost' && { minHeight: 44 },
         press.style,
       ]}>
       <View style={styles.btnRow}>
-        {icon ? <Icon name={icon} size="md" tint={fg} /> : null}
-        <Text style={{ color: variant === 'ghost' ? t.textSecondary : fg, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, fontSize: FontSize.body }}>{title}</Text>
+        {busy ? <Spinner color={label} testID={testID ? `${testID}-spinner` : 'button-spinner'} /> : icon ? <Icon name={icon} size="md" tint={fg} /> : null}
+        <Text style={{ color: label, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, fontSize: FontSize.body }}>{title}</Text>
       </View>
     </AnimatedPressable>
   );

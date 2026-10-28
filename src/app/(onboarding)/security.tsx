@@ -51,7 +51,7 @@ export default function Security() {
         <Switch accessibilityLabel="Unlock with biometrics" testID="bio-switch" value={bio} onValueChange={setBio} disabled={!bioAvail} />
       </View>
       {error && <Notice tone="danger">{error}</Notice>}
-      <Button testID="create-vault" title={busy ? 'Encrypting…' : 'Create vault'} disabled={busy} onPress={save} />
+      <Button testID="create-vault" title={busy ? 'Encrypting…' : 'Create vault'} loading={busy} onPress={save} />
     </Screen>
   );
 }

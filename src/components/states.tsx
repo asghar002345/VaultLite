@@ -12,12 +12,12 @@ import { haptic, useMotion } from '@/motion';
 
 /** Reusable state kit — every screen renders these for loading / empty / error / success / disabled. */
 
-export function LoadingState({ rows = 3, label, height = 64 }: { rows?: number; label?: string; height?: number }) {
+export function LoadingState({ rows = 3, label, height = 64, raised }: { rows?: number; label?: string; height?: number; raised?: boolean }) {
   return (
     <View testID="state-loading" style={{ gap: Spacing.sm }} accessibilityLabel={label ?? 'Loading'}>
       {label ? <T variant="caption">{label}</T> : null}
       {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} height={height} />
+        <Skeleton key={i} height={height} raised={raised} />
       ))}
     </View>
   );
@@ -201,7 +201,7 @@ export function ConfirmSheet({
             {body ? <T style={{ color: t.textSecondary }}>{body}</T> : null}
             {children}
             {error ? <Notice tone="danger">{error}</Notice> : null}
-            <Button testID="confirm-sheet-ok" variant={danger ? 'danger' : 'primary'} title={busy ? 'Working…' : confirmLabel} disabled={busy || confirmDisabled} onPress={onConfirm} />
+            <Button testID="confirm-sheet-ok" variant={danger ? 'danger' : 'primary'} title={busy ? 'Working…' : confirmLabel} loading={busy} disabled={confirmDisabled} onPress={onConfirm} />
             <Button variant="ghost" title="Cancel" disabled={busy} onPress={onCancel} />
           </Card>
         </Animated.View>

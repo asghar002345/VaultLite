@@ -6,7 +6,7 @@ import Animated from 'react-native-reanimated';
 import { Monogram } from '@/components/brand';
 import { applyKey, Keypad } from '@/components/keypad';
 import { ConfirmSheet } from '@/components/states';
-import { Button, Screen, T } from '@/components/ui';
+import { Button, Screen, Spinner, T } from '@/components/ui';
 import { PinDots } from '@/components/wallet';
 import { Spacing } from '@/constants/theme';
 import { useMotion } from '@/motion';
@@ -80,7 +80,16 @@ export default function Lock() {
           <View testID="lock-dots" accessibilityLabel={`${pin.length} of 6 digits entered`}>
             <PinDots length={6} filled={pin.length} error={!!error} shakeKey={shake} />
           </View>
-          {error ? <T variant="error" style={{ textAlign: 'center' }}>{error}</T> : <T variant="caption"> </T>}
+          {error ? (
+            <T variant="error" style={{ textAlign: 'center' }}>{error}</T>
+          ) : busy ? (
+            <View testID="lock-unlocking" accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
+              <Spinner />
+              <T variant="caption">Unlocking…</T>
+            </View>
+          ) : (
+            <T variant="caption"> </T>
+          )}
         </View>
         <Keypad round onKey={onKey} disabled={busy} left={bio ? { key: 'bio', icon: 'face', accessibilityLabel: 'Unlock with biometrics' } : null} />
       </View>

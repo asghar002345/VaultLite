@@ -52,7 +52,7 @@ export default function AddToken() {
       <T variant="caption">Token contract</T>
       <Input value={address} onChangeText={(x) => { setAddress(x); setMeta(null); }} placeholder={family === 'tron' ? 'T…' : '0x…'} />
       {v && !v.ok && <T variant="error">{v.reason}</T>}
-      <Button title={busy ? 'Checking on-chain…' : 'Verify'} disabled={!v?.ok || busy} onPress={verify} />
+      <Button title={busy ? 'Checking on-chain…' : 'Verify'} loading={busy} disabled={!v?.ok} onPress={verify} />
       {err && <Notice tone="danger">{err}</Notice>}
       {meta && v?.ok && (
         <Card>

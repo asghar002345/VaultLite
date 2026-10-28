@@ -57,7 +57,7 @@ export default function TokenDetail() {
         <Guilloche />
         <T variant="overline">Your holding</T>
         {q.isPending ? (
-          <LoadingState rows={1} height={52} label="Loading balance" />
+          <LoadingState raised rows={1} height={52} label="Loading balance" />
         ) : q.isError ? (
           <ErrorState title="Couldn't load balance" error={q.error} onRetry={() => q.refetch()} />
         ) : (
@@ -87,7 +87,7 @@ export default function TokenDetail() {
           ) : mq.rest.error ? (
             <ErrorState title="Couldn't load market price" error={mq.rest.error} onRetry={() => mq.rest.refetch()} />
           ) : (
-            <LoadingState rows={1} height={40} label="Loading market price" />
+            <LoadingState raised rows={1} height={40} label="Loading market price" />
           )}
         </View>
       </Section>

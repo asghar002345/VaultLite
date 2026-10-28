@@ -37,7 +37,7 @@ export default function Reveal() {
       ) : (
         <>
           <PinField testID="reveal-pin" label="Enter PIN to reveal" value={pin} onChange={setPin} error={err} />
-          <Button testID="reveal-submit" icon="show" title={busy ? 'Decrypting…' : 'Reveal'} disabled={pin.length < 6 || busy} onPress={async () => {
+          <Button testID="reveal-submit" icon="show" title={busy ? 'Decrypting…' : 'Reveal'} loading={busy} disabled={pin.length < 6} onPress={async () => {
             setBusy(true); setErr(null);
             try { const sec = await revealSecret(pin); setWords(sec.kind === 'mnemonic' ? sec.mnemonic.split(' ') : [(sec as { privateKey: string }).privateKey]); }
             catch { setErr('Incorrect PIN'); }

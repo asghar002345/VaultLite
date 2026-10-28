@@ -7,6 +7,8 @@ import { gridColumns, useBreakpoint } from '@/components/layout';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { TokenRow } from '@/components/token-row';
 import { Button, Screen } from '@/components/ui';
+import { RefreshHint, useRefreshControl } from '@/components/loading';
+import { loadPhase } from '@/lib/loading';
 import { SegmentedPills } from '@/components/wallet';
 import { CHAINS, type ChainKey } from '@/config/chains';
 import { Layout, Spacing } from '@/constants/theme';
@@ -33,11 +35,16 @@ export default function Tokens() {
     [q.data, hiddenChains, active],
   );
   const { quotes } = useAssetQuotes(rows);
+  const refresh = () => qc.refetchQueries({ queryKey: ['balances'], type: 'active' });
+  const pull = useRefreshControl(refresh);
+  const phase = loadPhase(q);
+  const [btnBusy, setBtnBusy] = useState(false);
   return (
-    <Screen wide testID="tokens">
+    <Screen wide testID="tokens" refreshControl={pull.control}>
       <SegmentedPills items={filters.map((f) => ({ key: f, label: shortName(f) }))} value={active} onChange={setFilter} testID="chain-filter" />
-      {q.isPending && <LoadingState rows={6} height={72} label="Loading balances" />}
-      {q.isError && <ErrorState title="Couldn't load balances" error={q.error} onRetry={() => q.refetch()} />}
+      <RefreshHint active={phase === 'refreshing' && !pull.refreshing && !btnBusy} label="Updating balances…" />
+      {phase === 'skeleton' && <LoadingState rows={6} height={72} label="Loading balances" />}
+      {phase === 'error' && <ErrorState title="Couldn't load balances" error={q.error} onRetry={() => q.refetch()} />}
       {q.isSuccess && rows.length === 0 && <EmptyState icon="wallet" title="No tokens here" body="Nothing on this network yet. Import a token by contract address." />}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
         {rows.map((item, i) => (
@@ -46,7 +53,7 @@ export default function Tokens() {
           </View>
         ))}
       </View>
-      <Button variant="secondary" icon="refresh" title="Refresh balances" onPress={() => qc.invalidateQueries({ queryKey: ['balances'] })} />
+      <Button testID="tokens-refresh" variant="secondary" icon="refresh" title={btnBusy ? 'Refreshing…' : 'Refresh balances'} loading={btnBusy} onPress={() => { setBtnBusy(true); return refresh().finally(() => setBtnBusy(false)); }} />
       <Button variant="ghost" icon="plus" title="Add custom token" onPress={() => router.push('/tokens/add')} />
     </Screen>
   );
