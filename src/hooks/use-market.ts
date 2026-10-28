@@ -73,7 +73,7 @@ export function useSocketStatus() {
 
 /** Ticks every `ms` so freshness labels age without new data. */
 export function useNow(ms = 5_000) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), ms);
     return () => clearInterval(id);

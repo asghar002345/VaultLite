@@ -10,6 +10,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { humanizeError } from '@/lib/errors';
 import { formatAmount } from '@/lib/format';
 import { haptic, useMotion } from '@/motion';
+import { RowMarketPrice } from '@/components/market';
+import type { Quote } from '@/hooks/use-market';
 
 export interface BalanceRow {
   chain: ChainKey;
@@ -23,7 +25,7 @@ export interface BalanceRow {
 export { previewRows } from '@/lib/preview';
 
 /** One asset row: monogram, symbol + network, tabular amount. Links to token detail. */
-export function TokenRow({ item, index }: { item: BalanceRow; index: number }) {
+export function TokenRow({ item, index, quote }: { item: BalanceRow; index: number; quote?: Quote }) {
   const t = useTheme();
   const m = useMotion();
   const press = usePressScale(0.98);
@@ -46,6 +48,7 @@ export function TokenRow({ item, index }: { item: BalanceRow; index: number }) {
           <View style={s.flex}>
             <T variant="label">{item.symbol}</T>
             <T variant="caption">{CHAINS[item.chain].name}</T>
+            {quote && <RowMarketPrice q={quote} />}
           </View>
           {amount === null ? (
             <T variant="caption" style={{ color: t.textTertiary }}>{item.error ? humanizeError(item.error).split('.')[0] : 'Unavailable'}</T>

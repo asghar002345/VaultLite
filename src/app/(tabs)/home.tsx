@@ -16,7 +16,11 @@ import { T, TestnetBanner, usePressScale } from '@/components/ui';
 import { Fonts, Layout, Radius, Spacing, Tabular, TextRoles } from '@/constants/theme';
 import { useBalances } from '@/hooks/use-balances';
 import { useTheme } from '@/hooks/use-theme';
-import { stableTotal } from '@/lib/amount';
+import { stableTotalUsdt } from '@/lib/amount';
+import { MarketRow, REFERENCE_LABEL } from '@/components/market';
+import { useAssetQuotes } from '@/hooks/use-asset-quotes';
+import { useTickers } from '@/hooks/use-market';
+import { toggleFav, useFavorites } from '@/store/favorites';
 import { haptic } from '@/motion';
 import { useHistory } from '@/store/history';
 import { useSettings } from '@/store/settings';
@@ -65,8 +69,14 @@ export default function Home() {
   const tabInset = useTabInset();
   const visible = useMemo(() => (q.data ?? []).filter((x) => !hiddenChains.includes(x.chain)), [q.data, hiddenChains]);
   const preview = useMemo(() => previewRows(visible, 4), [visible]);
+  const { quotes, usdc } = useAssetQuotes(preview);
+  const favorites = useFavorites();
+  const homeMarkets = (favorites.length ? favorites : ['BTCUSDT', 'ETHUSDT']).slice(0, 3);
+  const mk = useTickers(homeMarkets);
   if (!accounts) return null;
-  const total = stableTotal(visible);
+  const usdcRate = usdc.ticker && usdc.freshness !== 'stale' ? Number(usdc.ticker.last) : null;
+  const totalR = stableTotalUsdt(visible, usdcRate);
+  const total = totalR.value;
   const pad = bp.compact ? Spacing.md : Layout.margin;
 
   return (
@@ -82,6 +92,7 @@ export default function Home() {
               haptic.light();
               qc.invalidateQueries({ queryKey: ['balances'] });
               qc.invalidateQueries({ queryKey: ['history'] });
+              qc.invalidateQueries({ queryKey: ['market', 'rest'] });
             }}
           />
         }>
@@ -98,14 +109,18 @@ export default function Home() {
 
         <View style={[s.hero, { borderColor: t.border, backgroundColor: t.surface }]}>
           <Guilloche />
-          <T variant="overline">Total · test stablecoins at $1</T>
-          <AnimatedNumber
-            testID="total"
-            accessibilityLabel={`Total ${total.toFixed(2)} test dollars`}
-            value={total}
-            prefix="$"
-            style={[TextRoles.displayNumber, { color: t.text }, Tabular]}
-          />
+          <T variant="overline">Test stablecoins · in USDT</T>
+          {total === null ? (
+            <T testID="total" variant="hero" accessibilityLabel="Total unavailable: USDC to USDT rate unavailable">—</T>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm }}>
+              <AnimatedNumber testID="total" accessibilityLabel={`Total ${total.toFixed(2)} USDT in test stablecoins`} value={total} style={[TextRoles.displayNumber, { color: t.text }, Tabular]} />
+              <T variant="label" style={{ color: t.textSecondary }}>USDT</T>
+            </View>
+          )}
+          <T variant="footnote" testID="total-basis">
+            {total === null ? 'USDC/USDT rate unavailable — not estimated' : totalR.usesRate ? `USDC at ${REFERENCE_LABEL.toLowerCase()} ${usdc.ticker ? Number(usdc.ticker.last).toFixed(4) : ''}` : 'Testnet tokens have no market value'}
+          </T>
           <T variant="mono" style={{ color: t.textTertiary }}>
             {accounts.evm.address.slice(0, 6)}…{accounts.evm.address.slice(-4)}
           </T>
@@ -141,7 +156,22 @@ export default function Home() {
           )}
           <View style={{ gap: Spacing.sm }}>
             {preview.map((item, i) => (
-              <TokenRow key={`${item.chain}:${item.address}`} item={item} index={i} />
+              <TokenRow key={`${item.chain}:${item.address}`} item={item} index={i} quote={quotes[`${item.chain}:${item.address}`]} />
+            ))}
+          </View>
+        </Section>
+
+        <Section
+          title="Markets"
+          right={
+            <Pressable testID="markets-all" accessibilityRole="link" accessibilityLabel="See all markets" hitSlop={12} onPress={() => router.push('/markets')}>
+              <T variant="overline" style={{ color: t.primary }}>See all</T>
+            </Pressable>
+          }>
+          <T variant="footnote">{REFERENCE_LABEL} · not your balances</T>
+          <View testID="home-markets" style={{ gap: Spacing.sm }}>
+            {homeMarkets.map((sym) => (
+              <MarketRow key={sym} q={mk.quote({ kind: 'pair', symbol: sym })} fav={favorites.includes(sym)} onToggleFav={() => toggleFav(sym)} onPress={() => router.push({ pathname: '/markets/[symbol]', params: { symbol: sym } })} />
             ))}
           </View>
         </Section>

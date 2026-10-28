@@ -12,6 +12,9 @@ import type { Candle } from '@/services/market/binance-rest';
 import { arrowOf, directionOf, formatPct, formatPrice, spokenPct } from '@/services/market/format';
 import { clockLabel, type Freshness } from '@/services/market/stale';
 import { baseOf } from '@/services/market/symbols';
+import { linePath } from '@/services/market/chart';
+
+export { linePath };
 
 /** Label used everywhere market data appears, so it can't be mistaken for a balance. */
 export const REFERENCE_LABEL = 'Binance mainnet reference';
@@ -29,7 +32,7 @@ export function PriceChange({ pct, testID }: { pct: number | null | undefined; t
 }
 
 /** Freshness / connection caption. Stale quotes are labelled, never presented as live. */
-export function Freshness({ freshness, receivedAt, offline, testID }: { freshness: Freshness; receivedAt?: number; offline?: boolean; testID?: string }) {
+export function FreshnessLabel({ freshness, receivedAt, offline, testID }: { freshness: Freshness; receivedAt?: number; offline?: boolean; testID?: string }) {
   const t = useTheme();
   const text = offline
     ? `Offline${receivedAt ? ` · last update ${clockLabel(receivedAt)}` : ''}`
@@ -99,18 +102,6 @@ const compactUsd = (n: number) => {
   const a = Math.abs(n);
   return a >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : a >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : a >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0);
 };
-
-/** Pure: candle closes → SVG path in a w×h box. */
-export function linePath(candles: Pick<Candle, 'close'>[], w: number, h: number, pad = 4): { line: string; area: string } | null {
-  const ys = candles.map((c) => c.close).filter((v) => isFinite(v));
-  if (ys.length < 2 || w <= 0) return null;
-  const min = Math.min(...ys);
-  const max = Math.max(...ys);
-  const span = max - min || 1;
-  const pts = ys.map((v, i) => [(i / (ys.length - 1)) * w, pad + (1 - (v - min) / span) * (h - pad * 2)] as const);
-  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  return { line, area: `${line} L${w},${h} L0,${h} Z` };
-}
 
 /** Close-price line chart (klines). Accessible summary instead of per-point focus. */
 export function KlineChart({ candles, height = 200, label }: { candles: Candle[]; height?: number; label: string }) {

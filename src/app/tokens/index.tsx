@@ -12,6 +12,7 @@ import { CHAINS, type ChainKey } from '@/config/chains';
 import { Layout, Spacing } from '@/constants/theme';
 import { useBalances } from '@/hooks/use-balances';
 import { useSettings } from '@/store/settings';
+import { useAssetQuotes } from '@/hooks/use-asset-quotes';
 
 type Filter = 'all' | ChainKey;
 const ALL: Filter[] = ['all', 'sepolia', 'polygonAmoy', 'bscTestnet', 'baseSepolia', 'tronNile', 'solanaDevnet'];
@@ -31,6 +32,7 @@ export default function Tokens() {
     () => (q.data ?? []).filter((x) => !hiddenChains.includes(x.chain) && (active === 'all' || x.chain === active)),
     [q.data, hiddenChains, active],
   );
+  const { quotes } = useAssetQuotes(rows);
   return (
     <Screen wide testID="tokens">
       <SegmentedPills items={filters.map((f) => ({ key: f, label: shortName(f) }))} value={active} onChange={setFilter} testID="chain-filter" />
@@ -40,7 +42,7 @@ export default function Tokens() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
         {rows.map((item, i) => (
           <View key={`${item.chain}:${item.address}`} style={{ width: cols > 1 ? '49.4%' : '100%' }}>
-            <TokenRow item={item} index={i} />
+            <TokenRow item={item} index={i} quote={quotes[`${item.chain}:${item.address}`]} />
           </View>
         ))}
       </View>

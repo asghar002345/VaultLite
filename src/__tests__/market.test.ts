@@ -8,7 +8,10 @@ import { marketRefFor, validateRef } from '@/services/market/symbols';
 import { mergeCandle, mergeTickers } from '@/hooks/use-market';
 import { parseFavorites } from '@/store/favorites';
 import type { Ticker } from '@/services/market/binance-rest';
+import { stableTotalUsdt } from '@/lib/amount';
+import { linePath } from '@/services/market/chart';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 
 const tk = (symbol: string, last: string, changePct: number, quoteVolume: number, extra: Partial<Ticker> = {}): Ticker => ({
@@ -272,5 +275,27 @@ describe('Markets filters & sort', () => {
     expect(parseFavorites('["ETHUSDT", 3, "bad sym"]')).toEqual(['ETHUSDT']);
     expect(parseFavorites('garbage')).toEqual([]);
     expect(parseFavorites(null)).toEqual([]);
+  });
+});
+
+
+describe('stable total (USDT units)', () => {
+  const row = (symbol: string, balance: bigint | null, extra = {}) => ({ symbol, stable: true, balance, decimals: 6, ...extra });
+  it('converts USDC at live rate, USDT 1:1, ignores natives/custom', () => {
+    const r = stableTotalUsdt([row('USDC', 10_000_000n), row('USDT', 5_000_000n), { symbol: 'ETH', balance: 10n ** 18n, decimals: 18 }, row('USDC', 1_000_000n, { custom: true })], 1.0012);
+    expect(r.value).toBeCloseTo(15.012, 6);
+    expect(r.usesRate).toBe(true);
+  });
+  it('returns null (no fabricated $1) when USDC is held but rate unavailable', () => {
+    expect(stableTotalUsdt([row('USDC', 1n)], null).value).toBeNull();
+    expect(stableTotalUsdt([row('USDC', 0n), row('USDT', 2_000_000n)], null)).toEqual({ value: 2, usesRate: false });
+  });
+});
+
+describe('chart path', () => {
+  it('needs ≥2 points and maps min/max to the box', () => {
+    expect(linePath([{ close: 1 }], 100, 50)).toBeNull();
+    const p = linePath([{ close: 1 }, { close: 2 }], 100, 50, 0)!;
+    expect(p.line).toBe('M0.0,50.0 L100.0,0.0');
   });
 });

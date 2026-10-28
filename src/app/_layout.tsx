@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { SessionProvider, useSession } from '@/vault/session';
 import { WalletConnectHost } from '@/walletconnect/provider';
+import { MarketHost } from '@/services/market/host';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 2 } } });
 
@@ -38,6 +39,7 @@ function RootStack() {
   return (
     <>
     {status === 'unlocked' && <WalletConnectHost />}
+    {status === 'unlocked' && <MarketHost />}
     <Stack
       screenOptions={{
         headerShown: false,
@@ -64,6 +66,8 @@ function RootStack() {
         <Stack.Screen name="send/status/[hash]" options={{ headerShown: true, title: 'Status', headerBackVisible: false }} />
         <Stack.Screen name="escrow/index" options={{ headerShown: true, title: 'Escrow' }} />
         <Stack.Screen name="tokens/index" options={{ headerShown: true, title: 'Assets' }} />
+        <Stack.Screen name="markets/index" options={{ headerShown: true, title: 'Markets' }} />
+        <Stack.Screen name="markets/[symbol]" options={{ headerShown: true, title: 'Market' }} />
         <Stack.Screen name="walletconnect/pair" options={{ headerShown: true, title: 'Connect a dApp' }} />
         <Stack.Screen name="walletconnect/[topic]" options={{ headerShown: true, title: 'Session' }} />
         <Stack.Screen name="walletconnect/request" options={{ headerShown: true, title: 'Request', gestureEnabled: false }} />

@@ -19,6 +19,9 @@ import { NATIVE } from '@/config/tokens';
 import { useBalances } from '@/hooks/use-balances';
 import { formatAmount } from '@/lib/format';
 import { findIn, useAllTokens, useCustomTokenMutations } from '@/store/custom-tokens';
+import { FreshnessLabel, PriceChange, REFERENCE_LABEL } from '@/components/market';
+import { useAssetQuote } from '@/hooks/use-market';
+import { formatPrice } from '@/services/market/format';
 
 export default function TokenDetail() {
   const { chain, address } = useLocalSearchParams<{ chain: string; address: string }>();
@@ -30,6 +33,7 @@ export default function TokenDetail() {
   const t = useTheme();
   const m = useMotion();
   useEffect(() => haptic.light(), []);
+  const mq = useAssetQuote(token ?? null);
   if (!token) return <Screen><EmptyState icon="wallet" title="Unknown token" body="This token isn't in your list. Import it by contract address." action={{ label: 'Add custom token', onPress: () => router.push('/tokens/add') }} /></Screen>;
   const c = getChain(token.chain as ChainKey);
   const bal = q.data?.find((x) => x.chain === token.chain && x.address === token.address)?.balance;
@@ -62,6 +66,29 @@ export default function TokenDetail() {
           </Animated.View>
         )}
       </View>
+      <Section title="Market price">
+        <View testID="token-market" style={{ borderRadius: Radius.lg, borderWidth: 1, borderColor: t.border, backgroundColor: t.surface, padding: Spacing.lg, gap: Spacing.sm }}>
+          <T variant="footnote">{REFERENCE_LABEL} · not the value of this testnet balance</T>
+          {mq.q.ref.kind === 'quote' ? (
+            <T variant="body">USDT is the quote currency for Binance prices (1 USDT = 1 USDT).</T>
+          ) : mq.q.ref.kind === 'unavailable' ? (
+            <T variant="body" testID="market-unavailable">Market price unavailable. {mq.q.ref.reason}.</T>
+          ) : mq.q.ticker ? (
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm, flexWrap: 'wrap' }}>
+                <T variant="headline" style={{ fontVariant: ['tabular-nums'] }}>{formatPrice(mq.q.ticker.last, mq.q.tickDecimals)} USDT</T>
+                <PriceChange pct={mq.q.ticker.changePct} />
+              </View>
+              <FreshnessLabel freshness={mq.q.freshness} receivedAt={mq.q.ticker.receivedAt} />
+              <Button variant="ghost" icon="markets" title={`Open ${mq.q.ref.symbol} chart`} onPress={() => router.push({ pathname: '/markets/[symbol]', params: { symbol: (mq.q.ref as { symbol: string }).symbol } })} />
+            </>
+          ) : mq.rest.error ? (
+            <ErrorState title="Couldn't load market price" error={mq.rest.error} onRetry={() => mq.rest.refetch()} />
+          ) : (
+            <LoadingState rows={1} height={40} label="Loading market price" />
+          )}
+        </View>
+      </Section>
       <Section title="Details" group>
         <ListRow icon="network" title="Network" value={`${c.name}${c.chainId ? ` · ${c.chainId}` : ''}`} />
         <ListRow icon="key" title="Contract" value={token.address === NATIVE ? 'Native gas token' : short(token.address)} onPress={token.address === NATIVE ? undefined : () => Clipboard.setStringAsync(token.address)} right={token.address === NATIVE ? undefined : <Icon name="copy" size="sm" color="textTertiary" />} />
