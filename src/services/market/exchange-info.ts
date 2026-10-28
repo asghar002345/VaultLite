@@ -25,3 +25,36 @@ export async function loadExchangeInfo(symbols: readonly string[] = ALL_SYMBOLS,
   }
 }
 
+
+/** Offline fallback is only trusted for this long (tick/step sizes rarely change, listings do). */
+export const INFO_CACHE_MAX_AGE = 7 * 24 * 3600_000;
+
+/**
+ * exchangeInfo with an on-device fallback. A corrupt, malformed or too-old cache is ignored and the
+ * original network error is rethrown (never a JSON SyntaxError).
+ */
+export async function loadInfoWithCache(d: {
+  load: () => Promise<Record<string, SymbolInfo>>;
+  getItem: () => Promise<string | null>;
+  setItem: (v: string) => Promise<void>;
+  now?: () => number;
+  maxAge?: number;
+}): Promise<Record<string, SymbolInfo>> {
+  const now = d.now ?? Date.now;
+  try {
+    const info = await d.load();
+    d.setItem(JSON.stringify({ at: now(), info })).catch(() => {});
+    return info;
+  } catch (e) {
+    const raw = await d.getItem().catch(() => null);
+    let cached: { at?: unknown; info?: unknown } | null = null;
+    try {
+      cached = raw ? JSON.parse(raw) : null;
+    } catch {
+      cached = null;
+    }
+    const fresh = typeof cached?.at === 'number' && now() - cached.at <= (d.maxAge ?? INFO_CACHE_MAX_AGE);
+    if (fresh && cached?.info && typeof cached.info === 'object') return cached.info as Record<string, SymbolInfo>;
+    throw e;
+  }
+}

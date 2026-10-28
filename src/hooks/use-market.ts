@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { get24h, getKlines, INTERVALS, marketRetry, marketRetryDelay, type Candle, type KlineInterval, type SymbolInfo, type Ticker } from '@/services/market/binance-rest';
 import { MarketHttpError } from '@/services/market/binance-rest';
 import { klineStream, tickerStream } from '@/services/market/binance-ws';
-import { ALL_SYMBOLS, loadExchangeInfo } from '@/services/market/exchange-info';
+import { ALL_SYMBOLS, loadExchangeInfo, loadInfoWithCache } from '@/services/market/exchange-info';
+import { isOffline } from '@/services/market/offline';
 import { decimalsFromStep } from '@/services/market/format';
 import { getSocketStatus, retainStreams, subscribeSocketStatus } from '@/services/market/socket-host';
 import { freshnessOf, needsRefetch, type Freshness } from '@/services/market/stale';
@@ -55,18 +56,12 @@ export function useExchangeInfo() {
     retryDelay: marketRetryDelay,
     staleTime: INFO_TTL,
     gcTime: Infinity,
-    queryFn: async () => {
-      try {
-        const info = await loadExchangeInfo(ALL_SYMBOLS);
-        AsyncStorage.setItem(INFO_CACHE, JSON.stringify({ at: Date.now(), info })).catch(() => {});
-        return info;
-      } catch (e) {
-        const raw = await AsyncStorage.getItem(INFO_CACHE).catch(() => null);
-        const cached = raw ? (JSON.parse(raw) as { at: number; info: Record<string, SymbolInfo> }) : null;
-        if (cached?.info) return cached.info;
-        throw e;
-      }
-    },
+    queryFn: () =>
+      loadInfoWithCache({
+        load: () => loadExchangeInfo(ALL_SYMBOLS),
+        getItem: () => AsyncStorage.getItem(INFO_CACHE),
+        setItem: (v) => AsyncStorage.setItem(INFO_CACHE, v),
+      }),
   });
 }
 
@@ -128,7 +123,8 @@ export function useTickers(symbols: readonly string[]) {
 
   const tickers = map.data;
   useEffect(() => {
-    if (!valid.length || rest.isFetching) return;
+    // Offline: React Query is paused via onlineManager (bindOnlineManager); don't queue refetches.
+    if (!valid.length || rest.isFetching || isOffline()) return;
     if (valid.some((s) => tickers[s] && needsRefetch(tickers[s].receivedAt, now))) rest.refetch();
   }, [now]); // eslint-disable-line react-hooks/exhaustive-deps
 
