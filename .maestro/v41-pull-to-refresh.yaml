@@ -1,0 +1,39 @@
+# Run with -e PIN=<6-digit test PIN>.
+# v4.1: pull-to-refresh on Home and Markets keeps the screen usable. Read-only, TESTNET ONLY.
+appId: com.vaultlite.demo
+name: v4.1 pull-to-refresh
+tags: [v4.1, market]
+---
+- runFlow: subflows/import-test-wallet.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home"
+    timeout: 20000
+- swipe:
+    start: "50%, 25%"
+    end: "50%, 75%"
+    duration: 600
+- assertVisible:
+    id: "home"
+- scrollUntilVisible:
+    element:
+      id: "markets-all"
+    direction: DOWN
+- tapOn:
+    id: "markets-all"
+- extendedWaitUntil:
+    visible:
+      id: "markets"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "markets-freshness"
+    timeout: 20000
+- swipe:
+    start: "50%, 25%"
+    end: "50%, 75%"
+    duration: 600
+- assertVisible:
+    id: "markets"
+- assertNotVisible:
+    text: "Couldn't load Binance market data"

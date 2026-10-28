@@ -1,0 +1,43 @@
+# Run with -e PIN=<6-digit test PIN>.
+# v4.1: market detail chart, cycle every range the app offers (INTERVALS: 1D 1W 1M 1Y 5Y).
+# Needs network (Binance public API). Read-only, TESTNET ONLY.
+appId: com.vaultlite.demo
+name: v4.1 chart ranges
+tags: [v4.1, market]
+---
+- runFlow: subflows/import-test-wallet.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "markets-all"
+    direction: DOWN
+- tapOn:
+    id: "markets-all"
+- extendedWaitUntil:
+    visible:
+      id: "market-BTCUSDT"
+    timeout: 20000
+- tapOn:
+    id: "market-BTCUSDT"
+- extendedWaitUntil:
+    visible:
+      id: "kline-chart"
+    timeout: 20000
+- runFlow:
+    file: subflows/pick-range.yaml
+    env: { RANGE: "1D" }
+- runFlow:
+    file: subflows/pick-range.yaml
+    env: { RANGE: "1M" }
+- runFlow:
+    file: subflows/pick-range.yaml
+    env: { RANGE: "1Y" }
+- runFlow:
+    file: subflows/pick-range.yaml
+    env: { RANGE: "5Y" }
+- runFlow:
+    file: subflows/pick-range.yaml
+    env: { RANGE: "1W" }

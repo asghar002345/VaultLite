@@ -1,0 +1,15 @@
+# v4.1: cold-launch lock screen → (cancel system biometric prompt if any) → PIN keypad → Home.
+# Run: maestro test -e PIN=<6-digit test PIN> .maestro/v41-unlock.yaml   TESTNET ONLY.
+appId: com.vaultlite.demo
+name: v4.1 unlock
+tags: [v4.1, security]
+---
+- runFlow: subflows/import-test-wallet.yaml
+- stopApp
+- launchApp
+- runFlow: subflows/dismiss-biometric-prompt.yaml
+- extendedWaitUntil:
+    visible:
+      id: "lock"
+    timeout: 20000
+- runFlow: subflows/unlock-with-pin.yaml

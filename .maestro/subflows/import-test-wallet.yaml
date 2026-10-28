@@ -1,12 +1,17 @@
-# Shared: fresh install → import public test mnemonic → set PIN → land on Home.
+# Shared setup: clean install state → import the PUBLIC BIP-39 test mnemonic → set ${PIN} → Home.
+# Biometrics are switched OFF so no system prompt appears (expo-secure-store prompts when the
+# biometric key is written with requireAuthentication). Never put a real seed here.
 appId: com.vaultlite.demo
+env:
+  MNEMONIC: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
 ---
+- runFlow: require-pin.yaml
 - clearState
 - launchApp
 - extendedWaitUntil:
     visible:
       id: "import"
-    timeout: 15000
+    timeout: 20000
 - tapOn:
     id: "import"
 - tapOn:
@@ -15,7 +20,9 @@ appId: com.vaultlite.demo
 - hideKeyboard
 - tapOn:
     id: "import-continue"
-- assertVisible: "Secure your wallet"
+- extendedWaitUntil:
+    visible: "Secure your wallet"
+    timeout: 10000
 - tapOn:
     id: "pin"
 - inputText: ${PIN}
@@ -23,11 +30,21 @@ appId: com.vaultlite.demo
     id: "pin-confirm"
 - inputText: ${PIN}
 - hideKeyboard
+# Biometric switch defaults ON when the device supports it: turn it off for deterministic runs.
+- runFlow:
+    when:
+      visible:
+        id: "bio-switch"
+        checked: true
+    commands:
+      - tapOn:
+          id: "bio-switch"
 - tapOn:
     id: "create-vault"
+- runFlow: dismiss-biometric-prompt.yaml
 - extendedWaitUntil:
     visible:
       id: "home"
-    timeout: 30000   # scrypt KDF can take several seconds on emulators
+    timeout: 45000   # scrypt KDF can take several seconds
 - assertVisible:
     id: "testnet-banner"
