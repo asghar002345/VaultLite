@@ -7,6 +7,7 @@ import { FreshnessLabel, MarketRow, REFERENCE_LABEL } from '@/components/market'
 import { EmptyState, ErrorState, LoadingState, Notice } from '@/components/states';
 import { Button, Input, Screen, T } from '@/components/ui';
 import { RefreshHint, useRefreshControl } from '@/components/loading';
+import { singleFlight } from '@/lib/loading';
 import { SegmentedPills } from '@/components/wallet';
 import { HitTarget, Spacing } from '@/constants/theme';
 import { useTickers } from '@/hooks/use-market';
@@ -42,7 +43,12 @@ export default function Markets() {
   const loading = (m.info.isPending || m.rest.isPending) && list.length === 0 && category !== 'favorites';
   const error: unknown = list.length ? null : (m.info.error ?? m.rest.error ?? null);
 
-  const refresh = () => Promise.all([m.info.refetch(), m.rest.refetch()]);
+  // One shared in-flight refresh for pull-to-refresh, the button and Retry (no overlapping cancel/restart).
+  // refetch() is bound to each useQuery observer, which lives as long as this screen, so capturing it once is safe.
+  const infoRefetch = m.info.refetch;
+  const restRefetch = m.rest.refetch;
+  const refresh = useMemo(() => singleFlight(() => Promise.all([infoRefetch(), restRefetch()])), [infoRefetch, restRefetch]);
+  const refreshFailed = list.length > 0 && !!(m.rest.error ?? m.info.error) && !m.rest.isFetching;
   const pull = useRefreshControl(refresh);
 
   const pickSort = (k: SortKey) => {
@@ -91,10 +97,13 @@ export default function Markets() {
         })}
       </View>
       {offline && <Notice tone="warning">You&apos;re offline. Prices pause and resume when you reconnect.</Notice>}
+      {!offline && refreshFailed && (
+        <Notice tone="warning" testID="markets-refresh-failed">Couldn&apos;t refresh prices. Showing the last received values.</Notice>
+      )}
       {/* Some pairs already cached (e.g. from Home) while the full list is still loading: keep them, hint the rest. */}
       <RefreshHint testID="markets-loading-more" label="Loading all markets…" active={!loading && !pull.refreshing && category !== 'favorites' && (m.info.isPending || m.rest.isPending)} />
       {loading && <LoadingState rows={6} height={64} label="Loading markets" />}
-      {error ? <ErrorState title="Couldn't load Binance market data" error={error} onRetry={() => { m.info.refetch(); m.rest.refetch(); }} /> : null}
+      {error ? <ErrorState title="Couldn't load Binance market data" error={error} onRetry={() => refresh()} /> : null}
       {!loading && !error && list.length === 0 && (
         category === 'favorites' && !search ? (
           <EmptyState icon="star" title="No favorites yet" body="Tap the star on any market to keep it here." />
