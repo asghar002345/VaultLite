@@ -1,4 +1,4 @@
-import { binanceGet, MarketHttpError, parse24h, parseExchangeInfo, parseKlines, resetHostPreference, currentHost } from '@/services/market/binance-rest';
+import { binanceGet, marketRetry, marketRetryDelay, parseRetryAfter, rateLimitedUntil, MarketHttpError, parse24h, parseExchangeInfo, parseKlines, resetHostPreference, currentHost } from '@/services/market/binance-rest';
 import { backoffMs, MarketSocket, streamUrl, type MinimalWebSocket } from '@/services/market/binance-ws';
 import { loadExchangeInfo } from '@/services/market/exchange-info';
 import { applyMarketQuery, toggleFavorite } from '@/services/market/filters';
@@ -117,6 +117,35 @@ describe('REST client', () => {
     expect(err).toBeInstanceOf(MarketHttpError);
     expect(err.retryAfterMs).toBe(7000);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+  it('honours Retry-After: cooldown blocks further requests until it expires', async () => {
+    let t = 1_000_000;
+    const now = () => t;
+    const fetchImpl = jest.fn(async () => res(429, {}, { 'retry-after': '10' }));
+    await expect(binanceGet('/x', { fetchImpl, now })).rejects.toMatchObject({ status: 429, retryAfterMs: 10_000 });
+    expect(rateLimitedUntil()).toBe(1_010_000);
+    t += 4_000;
+    const ok = jest.fn(async () => res(200, { ok: 1 }));
+    await expect(binanceGet('/x', { fetchImpl: ok, now })).rejects.toMatchObject({ status: 429, retryAfterMs: 6_000 });
+    expect(ok).not.toHaveBeenCalled();
+    t += 6_000;
+    await expect(binanceGet('/x', { fetchImpl: ok, now })).resolves.toEqual({ ok: 1 });
+  });
+  it('parses Retry-After seconds / HTTP-date / missing, and 418 waits longer', () => {
+    expect(parseRetryAfter('5', 429, 0)).toBe(5000);
+    expect(parseRetryAfter(new Date(70_000).toUTCString(), 429, 10_000)).toBe(60_000);
+    expect(parseRetryAfter(null, 429)).toBe(60_000);
+    expect(parseRetryAfter(null, 418)).toBe(120_000);
+  });
+  it('retry policy waits Retry-After and never retries 400/451', () => {
+    const rl = new MarketHttpError(429, 'x', 7000);
+    expect(marketRetry(0, rl)).toBe(true);
+    expect(marketRetry(1, rl)).toBe(false);
+    expect(marketRetryDelay(0, rl)).toBe(7000);
+    expect(marketRetry(0, new MarketHttpError(451, 'x'))).toBe(false);
+    expect(marketRetry(0, new MarketHttpError(400, 'x'))).toBe(false);
+    expect(marketRetry(1, new Error('net'))).toBe(true);
+    expect(marketRetryDelay(2, new Error('net'))).toBe(4000);
   });
   it('parses 24h ticker, exchangeInfo and klines', () => {
     const t = parse24h({ symbol: 'BTCUSDT', lastPrice: '1', priceChangePercent: '1.600', highPrice: '2', lowPrice: '0.5', volume: '3', quoteVolume: '4.5', bidPrice: '0.9', askPrice: '1.1', closeTime: 9 }, 42);

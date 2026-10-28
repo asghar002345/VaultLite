@@ -39,7 +39,7 @@ export default function Markets() {
   const newest = Math.max(0, ...m.valid.map((s) => m.tickers[s]?.receivedAt ?? 0));
   const offline = net.isConnected === false;
   const loading = (m.info.isPending || m.rest.isPending) && list.length === 0 && category !== 'favorites';
-  const error = !list.length && (m.info.error || m.rest.error);
+  const error: unknown = list.length ? null : (m.info.error ?? m.rest.error ?? null);
 
   const pickSort = (k: SortKey) => {
     if (k === sort) setDir(dir === 'desc' ? 'asc' : 'desc');
@@ -88,7 +88,7 @@ export default function Markets() {
       </View>
       {offline && <Notice tone="warning">You&apos;re offline. Prices pause and resume when you reconnect.</Notice>}
       {loading && <LoadingState rows={6} height={64} label="Loading markets" />}
-      {error && <ErrorState title="Couldn't load Binance market data" error={error} onRetry={() => { m.info.refetch(); m.rest.refetch(); }} />}
+      {error ? <ErrorState title="Couldn't load Binance market data" error={error} onRetry={() => { m.info.refetch(); m.rest.refetch(); }} /> : null}
       {!loading && !error && list.length === 0 && (
         category === 'favorites' && !search ? (
           <EmptyState icon="star" title="No favorites yet" body="Tap the star on any market to keep it here." />

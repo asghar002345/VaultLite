@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
-import { get24h, getKlines, INTERVALS, type Candle, type KlineInterval, type SymbolInfo, type Ticker } from '@/services/market/binance-rest';
+import { get24h, getKlines, INTERVALS, marketRetry, marketRetryDelay, type Candle, type KlineInterval, type SymbolInfo, type Ticker } from '@/services/market/binance-rest';
+import { MarketHttpError } from '@/services/market/binance-rest';
 import { klineStream, tickerStream } from '@/services/market/binance-ws';
 import { ALL_SYMBOLS, loadExchangeInfo } from '@/services/market/exchange-info';
 import { decimalsFromStep } from '@/services/market/format';
@@ -50,6 +51,8 @@ export function marketSink(qc: QueryClient) {
 export function useExchangeInfo() {
   return useQuery({
     queryKey: MK.info,
+    retry: marketRetry,
+    retryDelay: marketRetryDelay,
     staleTime: INFO_TTL,
     gcTime: Infinity,
     queryFn: async () => {
@@ -105,9 +108,11 @@ export function useTickers(symbols: readonly string[]) {
   const key = valid.join(',');
   const rest = useQuery({
     queryKey: MK.rest(key),
+    retry: marketRetry,
+    retryDelay: marketRetryDelay,
     enabled: valid.length > 0,
     staleTime: 10_000,
-    refetchInterval: ws === 'open' ? false : 15_000,
+    refetchInterval: ws === 'open' ? false : (q) => { const e = q.state.error; return e instanceof MarketHttpError && e.retryAfterMs ? Math.max(15_000, e.retryAfterMs) : 15_000; },
     queryFn: async ({ signal }) => {
       const list = await get24h(valid, { signal });
       qc.setQueryData<Record<string, Ticker>>(MK.tickers, (p) => mergeTickers(p, list));
@@ -147,7 +152,7 @@ export function useAssetQuote(asset: { symbol: string; custom?: boolean } | null
 /** Candles via REST + live candle via WS kline stream while mounted. */
 export function useKlines(symbol: string, interval: KlineInterval) {
   const limit = INTERVALS.find((i) => i.key === interval)?.limit ?? 100;
-  const q = useQuery({ queryKey: MK.klines(symbol, interval), staleTime: 60_000, queryFn: ({ signal }) => getKlines(symbol, interval, limit, { signal }) });
+  const q = useQuery({ queryKey: MK.klines(symbol, interval), staleTime: 60_000, retry: marketRetry, retryDelay: marketRetryDelay, queryFn: ({ signal }) => getKlines(symbol, interval, limit, { signal }) });
   useEffect(() => retainStreams([klineStream(symbol, interval)]), [symbol, interval]);
   return q;
 }

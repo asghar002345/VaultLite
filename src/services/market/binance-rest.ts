@@ -14,15 +14,44 @@ export class MarketHttpError extends Error {
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown>; headers: { get(k: string): string | null } }>;
 
 let preferred = 0;
+/** Rate-limit cooldown (epoch ms) set from Retry-After on 429/418; requests fail fast until then. */
+let blockedUntil = 0;
 /** Testing hook. */
 export const resetHostPreference = () => {
   preferred = 0;
+  blockedUntil = 0;
 };
+export const rateLimitedUntil = () => blockedUntil;
+
+/** Retry-After header (seconds, or HTTP-date) → ms; default 60s for 429, 2 min for 418 (IP ban escalates). */
+export function parseRetryAfter(h: string | null, status: number, now = Date.now()): number {
+  const fallback = status === 418 ? 120_000 : 60_000;
+  if (!h) return fallback;
+  const secs = Number(h);
+  if (isFinite(secs) && secs > 0) return secs * 1000;
+  const at = Date.parse(h);
+  return isFinite(at) && at > now ? at - now : fallback;
+}
+
+/** React Query retry policy: honour Retry-After for rate limits (one retry), don't retry 400/451, else up to 2. */
+export function marketRetry(failureCount: number, err: unknown): boolean {
+  if (err instanceof MarketHttpError) {
+    if (err.status === 429 || err.status === 418) return failureCount < 1;
+    if (err.status === 400 || err.status === 451) return false;
+  }
+  return failureCount < 2;
+}
+export function marketRetryDelay(attempt: number, err: unknown): number {
+  if (err instanceof MarketHttpError && err.retryAfterMs) return err.retryAfterMs;
+  return Math.min(30_000, 1000 * 2 ** attempt);
+}
 export const currentHost = () => REST_HOSTS[preferred];
 
 /** GET path on the preferred host; on network error / 451 / 403 / 5xx try the other host. 429/418 are surfaced (back off, don't hammer). */
-export async function binanceGet<T>(path: string, opts: { signal?: AbortSignal; fetchImpl?: Fetch; timeoutMs?: number } = {}): Promise<T> {
+export async function binanceGet<T>(path: string, opts: { signal?: AbortSignal; fetchImpl?: Fetch; timeoutMs?: number; now?: () => number } = {}): Promise<T> {
   const f: Fetch = opts.fetchImpl ?? (globalThis.fetch as unknown as Fetch);
+  const now = opts.now ?? Date.now;
+  if (blockedUntil > now()) throw new MarketHttpError(429, 'Binance rate limit reached. Retrying shortly.', blockedUntil - now());
   let lastErr: unknown;
   for (let n = 0; n < REST_HOSTS.length; n++) {
     const idx = (preferred + n) % REST_HOSTS.length;
@@ -37,8 +66,9 @@ export async function binanceGet<T>(path: string, opts: { signal?: AbortSignal; 
         return (await res.json()) as T;
       }
       if (res.status === 429 || res.status === 418) {
-        const ra = Number(res.headers.get('retry-after'));
-        throw new MarketHttpError(res.status, 'Binance rate limit reached. Retrying shortly.', isFinite(ra) && ra > 0 ? ra * 1000 : 60_000);
+        const wait = parseRetryAfter(res.headers.get('retry-after'), res.status, now());
+        blockedUntil = now() + wait;
+        throw new MarketHttpError(res.status, res.status === 418 ? 'Binance temporarily blocked requests from this device. Retrying later.' : 'Binance rate limit reached. Retrying shortly.', wait);
       }
       if (res.status === 400) throw new MarketHttpError(400, 'Binance rejected the request (unknown symbol?)');
       lastErr = new MarketHttpError(res.status, res.status === 451 ? 'Binance is unavailable from this location' : `Binance HTTP ${res.status}`);
