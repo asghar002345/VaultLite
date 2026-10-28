@@ -80,5 +80,5 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', gap: Spacing.smd, justifyContent: 'space-between' },
   round: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginHorizontal: 'auto' },
   rect: { flex: 1, height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  digit: { fontFamily: Fonts.display, fontSize: 30, lineHeight: 36 },
+  digit: { fontFamily: Fonts.ui, fontWeight: '400', fontSize: 30, lineHeight: 36, fontVariant: ['tabular-nums'] },
 });

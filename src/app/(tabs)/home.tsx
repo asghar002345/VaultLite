@@ -13,7 +13,7 @@ import { EmptyState, ErrorState, LoadingState, Section } from '@/components/stat
 import { previewRows, TokenRow } from '@/components/token-row';
 import { TxRow } from '@/components/tx-row';
 import { T, TestnetBanner, usePressScale } from '@/components/ui';
-import { Fonts, Layout, Radius, Spacing, Tabular } from '@/constants/theme';
+import { Fonts, Layout, Radius, Spacing, Tabular, TextRoles } from '@/constants/theme';
 import { useBalances } from '@/hooks/use-balances';
 import { useTheme } from '@/hooks/use-theme';
 import { stableTotal } from '@/lib/amount';
@@ -104,7 +104,7 @@ export default function Home() {
             accessibilityLabel={`Total ${total.toFixed(2)} test dollars`}
             value={total}
             prefix="$"
-            style={[{ fontFamily: Fonts.display, fontSize: 48, lineHeight: 56, letterSpacing: -0.96, color: t.text }, Tabular]}
+            style={[TextRoles.displayNumber, { color: t.text }, Tabular]}
           />
           <T variant="mono" style={{ color: t.textTertiary }}>
             {accounts.evm.address.slice(0, 6)}…{accounts.evm.address.slice(-4)}

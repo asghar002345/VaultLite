@@ -1,7 +1,6 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Geist_400Regular, Geist_500Medium } from '@expo-google-fonts/geist';
 import { GeistMono_400Regular } from '@expo-google-fonts/geist-mono';
 import { InstrumentSerif_400Regular } from '@expo-google-fonts/instrument-serif';
 import { useFonts } from 'expo-font';
@@ -25,8 +24,6 @@ function RootStack() {
   const { status } = useSession();
   const [fontsLoaded, fontError] = useFonts({
     InstrumentSerif_400Regular,
-    Geist_400Regular,
-    Geist_500Medium,
     GeistMono_400Regular,
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);

@@ -113,7 +113,7 @@ export default function Send() {
             placeholderTextColor={t.textTertiary}
             keyboardType="decimal-pad"
             showSoftInputOnFocus={false}
-            style={[{ fontFamily: Fonts.display, fontSize: 56, lineHeight: 64, color: t.text, textAlign: 'center', width: Math.min(260, Math.max(1, (amount || '0').length) * 27 + 12), padding: 0 }, Tabular]}
+            style={[{ fontFamily: Fonts.ui, fontWeight: '300', fontVariant: ['tabular-nums'], fontSize: 56, lineHeight: 64, color: t.text, textAlign: 'center', width: Math.min(260, Math.max(1, (amount || '0').length) * 27 + 12), padding: 0 }, Tabular]}
           />
           <T style={{ fontFamily: Fonts.display, fontSize: 24, color: t.primary }}>{token.symbol}</T>
         </View>

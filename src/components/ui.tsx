@@ -4,7 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useBreakpoint, useTabInset } from '@/components/layout';
-import { Fonts, FontSize, Layout, Radius, Spacing, Tabular } from '@/constants/theme';
+import { Fonts, FontSize, Layout, MaxScale, Radius, Spacing, Tabular, TextRoles, Weight } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Icon, type IconName } from '@/components/icon';
 import { haptic, Springs, useMotion } from '@/motion';
@@ -48,22 +48,27 @@ export function Screen({
   );
 }
 
-type Variant = 'body' | 'title' | 'hero' | 'headline' | 'overline' | 'caption' | 'label' | 'mono' | 'error' | 'amount';
+type Variant = 'body' | 'title' | 'hero' | 'headline' | 'overline' | 'caption' | 'label' | 'mono' | 'error' | 'amount' | 'largeTitle' | 'footnote' | 'number';
+/** Text with semantic roles (see TextRoles). Serif only for title/largeTitle; numbers use system tabular figures. */
 export function T({ variant = 'body', style, ...p }: TextProps & { variant?: Variant }) {
   const t = useTheme();
   const v = {
-    body: { fontSize: FontSize.body, lineHeight: 22, fontFamily: Fonts.ui, color: t.text },
-    label: { fontSize: FontSize.label, lineHeight: 22, fontFamily: Fonts.uiMedium, color: t.text },
-    headline: { fontSize: FontSize.headline, lineHeight: 26, fontFamily: Fonts.uiMedium, color: t.text },
-    title: { fontSize: FontSize.title, lineHeight: 34, fontFamily: Fonts.display, color: t.text, letterSpacing: -0.3 },
-    hero: { fontSize: FontSize.hero, lineHeight: 52, fontFamily: Fonts.display, color: t.text, letterSpacing: -0.96, ...Tabular },
-    overline: { fontSize: 12, lineHeight: 16, fontFamily: Fonts.uiMedium, color: t.textSecondary, letterSpacing: 0.96, textTransform: 'uppercase' as const },
-    caption: { fontSize: 13, lineHeight: 18, fontFamily: Fonts.ui, color: t.textSecondary },
+    body: { ...TextRoles.body, color: t.text },
+    label: { ...TextRoles.callout, color: t.text },
+    headline: { fontSize: FontSize.headline, lineHeight: 26, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, color: t.text },
+    largeTitle: { ...TextRoles.largeTitle, color: t.text },
+    title: { ...TextRoles.title, color: t.text },
+    hero: { ...TextRoles.displayNumber, color: t.text },
+    number: { ...TextRoles.numeric, color: t.text },
+    overline: { fontSize: 12, lineHeight: 16, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, color: t.textSecondary, letterSpacing: 0.96, textTransform: 'uppercase' as const },
+    caption: { ...TextRoles.footnote, color: t.textSecondary },
+    footnote: { ...TextRoles.caption, color: t.textSecondary },
     mono: { fontSize: FontSize.mono, lineHeight: 18, fontFamily: Fonts.mono, color: t.text },
-    error: { fontSize: 13, lineHeight: 18, fontFamily: Fonts.uiMedium, color: t.danger },
-    amount: { fontSize: FontSize.body, lineHeight: 22, fontFamily: Fonts.uiMedium, color: t.text, ...Tabular },
+    error: { ...TextRoles.footnote, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, color: t.danger },
+    amount: { ...TextRoles.numeric, color: t.text, ...Tabular },
   }[variant];
-  return <Text {...p} style={[v, style]} />;
+  const cap = variant === 'hero' || variant === 'largeTitle' ? MaxScale.display : p.maxFontSizeMultiplier;
+  return <Text {...p} maxFontSizeMultiplier={cap} style={[v, style]} />;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -131,7 +136,7 @@ export function Button({
       ]}>
       <View style={styles.btnRow}>
         {icon ? <Icon name={icon} size="md" tint={fg} /> : null}
-        <Text style={{ color: variant === 'ghost' ? t.textSecondary : fg, fontFamily: Fonts.uiMedium, fontSize: FontSize.body }}>{title}</Text>
+        <Text style={{ color: variant === 'ghost' ? t.textSecondary : fg, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, fontSize: FontSize.body }}>{title}</Text>
       </View>
     </AnimatedPressable>
   );

@@ -49,8 +49,7 @@ import {
   Unplug,
   Wallet,
   X,
-  type LucideIcon,
-} from 'lucide-react-native';
+  type LucideIcon, Search, Star, TrendingUp, WifiOff } from 'lucide-react-native';
 
 import type { ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -111,6 +110,10 @@ const MAP = {
   withdraw: Download,
   backspace: Delete,
   face: ScanFace,
+  markets: TrendingUp,
+  star: Star,
+  search: Search,
+  offline: WifiOff,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof MAP;

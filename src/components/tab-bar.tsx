@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icon';
-import { Fonts, Layout } from '@/constants/theme';
+import { Fonts, HitTarget, Layout, MaxScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { haptic } from '@/motion';
 
@@ -36,7 +36,7 @@ export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps)
               }}
               style={[s.item, landscape && s.itemLandscape]}>
               <Icon name={ICON[route.name] ?? 'info'} size="md" tint={focused ? t.primary : t.textTertiary} />
-              <Text style={{ color: focused ? t.text : t.textTertiary, fontFamily: Fonts.uiMedium, fontSize: 11, letterSpacing: 0.4 }}>{label}</Text>
+              <Text maxFontSizeMultiplier={MaxScale.tabBar} style={{ color: focused ? t.text : t.textTertiary, fontFamily: Fonts.uiMedium, fontSize: 11, letterSpacing: 0.4 }}>{label}</Text>
             </Pressable>
           );
         })}
@@ -48,6 +48,6 @@ export function TabBar({ state, descriptors, navigateToTab }: BottomTabBarProps)
 const s = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: 1, alignItems: 'center' },
   bar: { flexDirection: 'row', width: '100%', paddingTop: 8 },
-  item: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 6 },
+  item: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 6, minHeight: HitTarget },
   itemLandscape: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 4 },
 });
