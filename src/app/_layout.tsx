@@ -11,12 +11,14 @@ import { loadSettings } from '@/store/settings';
 import { Colors, Fonts } from '@/constants/theme';
 import { useIsDark } from '@/hooks/use-theme';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { SessionProvider, useSession } from '@/vault/session';
 import { WalletConnectHost } from '@/walletconnect/provider';
 import { MarketHost } from '@/services/market/host';
+import { bindOnlineManager } from '@/services/market/offline';
 
+bindOnlineManager(onlineManager);
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 2 } } });
 
 SplashScreen.preventAutoHideAsync();

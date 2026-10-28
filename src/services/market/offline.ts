@@ -8,6 +8,10 @@ import { Platform } from 'react-native';
  * window online/offline + navigator.onLine.
  */
 let netOffline = false;
+
+/** Offline = no link, or a link with confirmed no internet (captive portal / dead Wi-Fi). null = unknown → online. */
+export const offlineFromNetState = (s: { isConnected: boolean | null; isInternetReachable?: boolean | null }) =>
+  s.isConnected === false || s.isInternetReachable === false;
 let webOffline = Platform.OS === 'web' && typeof navigator !== 'undefined' ? navigator.onLine === false : false;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
@@ -17,7 +21,7 @@ function start() {
   if (started) return;
   started = true;
   NetInfo.addEventListener((s) => {
-    const v = s.isConnected === false;
+    const v = offlineFromNetState(s);
     if (v !== netOffline) {
       netOffline = v;
       emit();
@@ -42,3 +46,14 @@ export function subscribeOffline(l: () => void) {
   };
 }
 export const useOffline = () => useSyncExternalStore(subscribeOffline, isOffline, isOffline);
+
+/**
+ * Drive React Query's onlineManager from this signal, so queries (polling, retries, refetches) pause
+ * while offline and resume on reconnect. React Native has no default online detection.
+ */
+export function bindOnlineManager(om: { setEventListener: (setup: (setOnline: (online: boolean) => void) => () => void) => void }) {
+  om.setEventListener((setOnline) => {
+    setOnline(!isOffline());
+    return subscribeOffline(() => setOnline(!isOffline()));
+  });
+}
