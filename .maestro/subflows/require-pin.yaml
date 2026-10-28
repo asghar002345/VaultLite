@@ -2,5 +2,5 @@
 appId: com.vaultlite.demo
 ---
 - assertTrue:
-    condition: ${typeof PIN !== 'undefined' && /^[0-9]{6}$/.test(String(PIN))}
+    condition: ${typeof PIN !== 'undefined' && String(PIN).length == 6 && !isNaN(Number(PIN))}
     label: "PIN env var must be passed as -e PIN=<6 digits>"

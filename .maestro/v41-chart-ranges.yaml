@@ -10,18 +10,17 @@ tags: [v4.1, market]
     visible:
       id: "home"
     timeout: 20000
-- scrollUntilVisible:
-    element:
-      id: "markets-all"
-    direction: DOWN
-- tapOn:
-    id: "markets-all"
+- runFlow: subflows/open-markets.yaml
 - extendedWaitUntil:
     visible:
       id: "market-BTCUSDT"
-    timeout: 20000
+    timeout: 30000   # rows render only after the first 24h ticker response
 - tapOn:
     id: "market-BTCUSDT"
+- extendedWaitUntil:
+    visible:
+      id: "market-detail"
+    timeout: 15000
 - extendedWaitUntil:
     visible:
       id: "kline-chart"

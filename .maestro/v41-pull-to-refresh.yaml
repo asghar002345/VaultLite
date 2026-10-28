@@ -15,16 +15,7 @@ tags: [v4.1, market]
     duration: 600
 - assertVisible:
     id: "home"
-- scrollUntilVisible:
-    element:
-      id: "markets-all"
-    direction: DOWN
-- tapOn:
-    id: "markets-all"
-- extendedWaitUntil:
-    visible:
-      id: "markets"
-    timeout: 10000
+- runFlow: subflows/open-markets.yaml
 - extendedWaitUntil:
     visible:
       id: "markets-freshness"

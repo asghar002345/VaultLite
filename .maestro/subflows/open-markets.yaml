@@ -1,0 +1,38 @@
+# Home → Markets. "See all" (markets-all) sits in the Markets section near the bottom of Home, and the
+# tab bar floats over the bottom of the screen (position: absolute, src/components/tab-bar.tsx:49).
+# A plain scrollUntilVisible stops as soon as the link enters the viewport, i.e. under the tab bar,
+# so the tap lands on a tab. Center it before tapping; deep-link as a fallback.
+appId: com.vaultlite.demo
+---
+- extendedWaitUntil:
+    visible:
+      id: "home"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "markets-all"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "markets-all"
+- runFlow:
+    when:
+      notVisible:
+        id: "markets"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "markets"
+          timeout: 5000
+          optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "markets"
+    commands:
+      - openLink: vaultlite://markets
+- extendedWaitUntil:
+    visible:
+      id: "markets"
+    timeout: 15000
