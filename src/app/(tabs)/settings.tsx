@@ -43,6 +43,7 @@ export default function SettingsHub() {
         <ListRow testID="row-networks" icon="network" title="Networks" value={st.hiddenChains.length ? `${st.hiddenChains.length} hidden` : 'All shown'} onPress={() => router.push('/settings/networks')} />
         <ListRow icon="plus" title="Custom tokens" subtitle="Import an ERC-20 / TRC-20 by address" onPress={() => router.push('/tokens/add')} />
         <ListRow testID="row-escrow" icon="escrow" title="Milestone escrow" subtitle="Base Sepolia · USDC" onPress={() => router.push('/escrow')} />
+        <ListRow testID="row-smart-account" icon="wallet" title="Smart account" subtitle="ERC-4337 · Base Sepolia" onPress={() => router.push('/settings/smart-account')} />
       </Section>
       <Section title="App" group>
         <ListRow testID="row-appearance" icon="moon" title="Appearance" value="Vault Dark" onPress={() => router.push('/settings/appearance')} />

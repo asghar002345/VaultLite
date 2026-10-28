@@ -76,6 +76,7 @@ function RootStack() {
         <Stack.Screen name="settings/appearance" options={{ headerShown: true, title: 'Appearance' }} />
         <Stack.Screen name="settings/currency" options={{ headerShown: true, title: 'Currency' }} />
         <Stack.Screen name="settings/about" options={{ headerShown: true, title: 'About' }} />
+        <Stack.Screen name="settings/smart-account" options={{ headerShown: true, title: 'Smart account' }} />
         <Stack.Screen name="settings/security/index" options={{ headerShown: true, title: 'Security' }} />
         <Stack.Screen name="settings/security/pin" options={{ headerShown: true, title: 'Change PIN' }} />
         <Stack.Screen name="settings/security/reveal" options={{ headerShown: true, title: 'Recovery phrase' }} />
