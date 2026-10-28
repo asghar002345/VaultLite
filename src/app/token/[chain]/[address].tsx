@@ -92,7 +92,8 @@ export default function TokenDetail() {
         </View>
       </Section>
       <Section title="Details" group>
-        <ListRow icon="network" title="Network" value={`${c.name}${c.chainId ? ` · ${c.chainId}` : ''}`} />
+        <ListRow icon="network" title="Network" value={c.name} />
+        {c.chainId ? <ListRow icon="info" title="Chain ID" value={String(c.chainId)} /> : null}
         <ListRow icon="key" title="Contract" value={token.address === NATIVE ? 'Native gas token' : short(token.address)} onPress={token.address === NATIVE ? undefined : () => Clipboard.setStringAsync(token.address)} right={token.address === NATIVE ? undefined : <Icon name="copy" size="sm" color="textTertiary" />} />
         {token.source ? <ListRow icon="info" title="Address source" value={token.source} /> : null}
         {token.custom ? <ListRow icon="check" title="Custom token" subtitle="Verified on-chain when imported" /> : null}

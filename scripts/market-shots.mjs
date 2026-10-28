@@ -81,6 +81,9 @@ await shot('11-token-detail-eth');
 await go('/token/sepolia/0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238');
 await page.waitForTimeout(3000);
 await shot('12-token-detail-usdc');
+await go('/tokens');
+await page.getByText('USDC').first().waitFor({ timeout: 30_000 }).catch(() => {});
+await shot('12b-assets');
 await go('/settings/currency');
 await shot('13-settings-currency');
 
