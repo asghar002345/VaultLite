@@ -8,10 +8,10 @@ export default function Currency() {
   return (
     <Screen testID="settings-currency">
       <Section title="Display currency" group>
-        <ListRow icon="currency" title="US Dollar (USD)" subtitle="Used for the Home total" right={<Icon name="check" color="primary" />} />
+        <ListRow icon="currency" title="Tether (USDT)" subtitle="Home total is shown in USDT" right={<Icon name="check" color="primary" />} />
       </Section>
       <Notice tone="info">
-        Testnet tokens have no market price, so there is no price feed to convert into other currencies. VaultLite values test stablecoins at $1 and leaves native test tokens unpriced.
+        Testnet tokens have no market value. The Home total counts test stablecoins in USDT: test USDT 1:1 and test USDC at the live Binance USDC/USDT rate (shown under the total). Native test tokens are never priced. Market prices elsewhere are a labelled Binance mainnet reference.
       </Notice>
       <Section title={`Valued at $1 (${stables.length})`}>
         {stables.map((t) => (

@@ -46,7 +46,7 @@ export default function SettingsHub() {
       </Section>
       <Section title="App" group>
         <ListRow testID="row-appearance" icon="moon" title="Appearance" value="Vault Dark" onPress={() => router.push('/settings/appearance')} />
-        <ListRow testID="row-currency" icon="currency" title="Currency" value="USD" onPress={() => router.push('/settings/currency')} />
+        <ListRow testID="row-currency" icon="currency" title="Currency" value="USDT" onPress={() => router.push('/settings/currency')} />
         <ListRow testID="row-about" icon="info" title="About" value={`v${Constants.expoConfig?.version ?? 'dev'}`} onPress={() => router.push('/settings/about')} />
       </Section>
       <View style={{ gap: Spacing.sm }}>
