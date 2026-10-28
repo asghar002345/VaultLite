@@ -48,3 +48,6 @@ public/canvaskit.wasm
 
 # visual comparison output
 visual-report/
+
+# market screenshot output
+market-shots/

@@ -135,6 +135,8 @@ export class MarketSocket {
     this.setStatus(this.attempt === 0 ? 'connecting' : 'reconnecting');
     const ws = new this.d.WebSocketImpl(streamUrl(WS_HOSTS[this.hostIdx], this.streams));
     this.ws = ws;
+    // Connect timeout: a socket stuck in CONNECTING (no open, no close) must also be recycled.
+    this.armIdle();
     ws.onopen = () => {
       this.attempt = 0;
       this.setStatus('open');

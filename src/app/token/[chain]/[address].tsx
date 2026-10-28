@@ -22,6 +22,7 @@ import { findIn, useAllTokens, useCustomTokenMutations } from '@/store/custom-to
 import { FreshnessLabel, PriceChange, REFERENCE_LABEL } from '@/components/market';
 import { useAssetQuote } from '@/hooks/use-market';
 import { formatPrice } from '@/services/market/format';
+import { useOffline } from '@/services/market/offline';
 
 export default function TokenDetail() {
   const { chain, address } = useLocalSearchParams<{ chain: string; address: string }>();
@@ -34,6 +35,7 @@ export default function TokenDetail() {
   const m = useMotion();
   useEffect(() => haptic.light(), []);
   const mq = useAssetQuote(token ?? null);
+  const offlineNow = useOffline();
   if (!token) return <Screen><EmptyState icon="wallet" title="Unknown token" body="This token isn't in your list. Import it by contract address." action={{ label: 'Add custom token', onPress: () => router.push('/tokens/add') }} /></Screen>;
   const c = getChain(token.chain as ChainKey);
   const bal = q.data?.find((x) => x.chain === token.chain && x.address === token.address)?.balance;
@@ -79,7 +81,7 @@ export default function TokenDetail() {
                 <T variant="headline" style={{ fontVariant: ['tabular-nums'] }}>{formatPrice(mq.q.ticker.last, mq.q.tickDecimals)} USDT</T>
                 <PriceChange pct={mq.q.ticker.changePct} />
               </View>
-              <FreshnessLabel freshness={mq.q.freshness} receivedAt={mq.q.ticker.receivedAt} />
+              <FreshnessLabel freshness={mq.q.freshness} receivedAt={mq.q.ticker.receivedAt} offline={offlineNow} />
               <Button variant="ghost" icon="markets" title={`Open ${mq.q.ref.symbol} chart`} onPress={() => router.push({ pathname: '/markets/[symbol]', params: { symbol: (mq.q.ref as { symbol: string }).symbol } })} />
             </>
           ) : mq.rest.error ? (

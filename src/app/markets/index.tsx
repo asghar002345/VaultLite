@@ -1,4 +1,3 @@
-import { useNetInfo } from '@react-native-community/netinfo';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -11,6 +10,7 @@ import { SegmentedPills } from '@/components/wallet';
 import { HitTarget, Spacing } from '@/constants/theme';
 import { useTickers } from '@/hooks/use-market';
 import { useTheme } from '@/hooks/use-theme';
+import { useOffline } from '@/services/market/offline';
 import { applyMarketQuery, type MarketCategory, type SortDir, type SortKey } from '@/services/market/filters';
 import { freshnessOf } from '@/services/market/stale';
 import { MARKET_UNIVERSE } from '@/services/market/symbols';
@@ -25,7 +25,7 @@ const SORTS: { key: SortKey; label: string }[] = [
 /** Markets: Binance spot USDT pairs (mainnet reference). Search, category, sort, favorites. */
 export default function Markets() {
   const t = useTheme();
-  const net = useNetInfo();
+  const offlineNow = useOffline();
   const favorites = useFavorites();
   const m = useTickers(MARKET_UNIVERSE);
   const [search, setSearch] = useState('');
@@ -37,7 +37,7 @@ export default function Markets() {
     [m.valid, m.tickers, search, category, sort, dir, favorites],
   );
   const newest = Math.max(0, ...m.valid.map((s) => m.tickers[s]?.receivedAt ?? 0));
-  const offline = net.isConnected === false;
+  const offline = offlineNow;
   const loading = (m.info.isPending || m.rest.isPending) && list.length === 0 && category !== 'favorites';
   const error: unknown = list.length ? null : (m.info.error ?? m.rest.error ?? null);
 

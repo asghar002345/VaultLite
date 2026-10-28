@@ -119,7 +119,7 @@ export default function Home() {
             </View>
           )}
           <T variant="footnote" testID="total-basis">
-            {total === null ? 'USDC/USDT rate unavailable — not estimated' : totalR.usesRate ? `USDC at ${REFERENCE_LABEL.toLowerCase()} ${usdc.ticker ? Number(usdc.ticker.last).toFixed(4) : ''}` : 'Testnet tokens have no market value'}
+            {total === null ? 'USDC/USDT rate unavailable — not estimated' : totalR.usesRate ? `USDC at Binance USDC/USDT ${usdc.ticker ? Number(usdc.ticker.last).toFixed(4) : ''} · mainnet reference` : 'Testnet tokens have no market value'}
           </T>
           <T variant="mono" style={{ color: t.textTertiary }}>
             {accounts.evm.address.slice(0, 6)}…{accounts.evm.address.slice(-4)}

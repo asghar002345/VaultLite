@@ -60,8 +60,8 @@ export function RowMarketPrice({ q }: { q: Quote }) {
   if (!q.ticker) return <T variant="footnote" style={{ color: t.textTertiary }}>—</T>;
   const stale = q.freshness === 'stale';
   return (
-    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }} accessibilityLabel={`${REFERENCE_LABEL}: ${formatPrice(q.ticker.last, q.tickDecimals)} USDT, ${spokenPct(q.ticker.changePct)}${stale ? ', stale' : ''}`}>
-      <T variant="footnote" style={{ color: stale ? t.warning : t.textSecondary, fontVariant: ['tabular-nums'] }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 6, alignItems: 'center' }} accessibilityLabel={`${REFERENCE_LABEL}: ${formatPrice(q.ticker.last, q.tickDecimals)} USDT, ${spokenPct(q.ticker.changePct)}${stale ? ', stale' : ''}`}>
+      <T variant="footnote" numberOfLines={1} style={{ color: stale ? t.warning : t.textSecondary, fontVariant: ['tabular-nums'] }}>
         {formatPrice(q.ticker.last, q.tickDecimals)} USDT{stale ? ' · stale' : ''}
       </T>
       <PriceChange pct={q.ticker.changePct} />

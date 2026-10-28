@@ -1,4 +1,3 @@
-import { useNetInfo } from '@react-native-community/netinfo';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -11,6 +10,7 @@ import { SegmentedPills, Skeleton } from '@/components/wallet';
 import { HitTarget, Radius, Spacing } from '@/constants/theme';
 import { useKlines, useTickers } from '@/hooks/use-market';
 import { useTheme } from '@/hooks/use-theme';
+import { useOffline } from '@/services/market/offline';
 import { INTERVALS, type KlineInterval } from '@/services/market/binance-rest';
 import { formatCompact, formatPrice, spokenPct } from '@/services/market/format';
 import { baseOf } from '@/services/market/symbols';
@@ -20,7 +20,7 @@ export default function MarketDetail() {
   const { symbol = '' } = useLocalSearchParams<{ symbol: string }>();
   const sym = symbol.toUpperCase();
   const t = useTheme();
-  const net = useNetInfo();
+  const offlineNow = useOffline();
   const favorites = useFavorites();
   const m = useTickers([sym]);
   const q = m.quote({ kind: 'pair', symbol: sym });
@@ -62,7 +62,7 @@ export default function MarketDetail() {
             <View style={{ flexDirection: 'row', gap: Spacing.smd, alignItems: 'center' }}>
               <PriceChange pct={tk.changePct} testID="market-change" />
               <T variant="footnote">24h</T>
-              <FreshnessLabel freshness={q.freshness} receivedAt={tk.receivedAt} offline={net.isConnected === false} />
+              <FreshnessLabel freshness={q.freshness} receivedAt={tk.receivedAt} offline={offlineNow} />
             </View>
           </>
         ) : m.rest.error ? (
@@ -74,7 +74,7 @@ export default function MarketDetail() {
 
       <View style={{ gap: Spacing.smd }}>
         <SegmentedPills testID="interval" items={INTERVALS.map((i) => ({ key: i.key, label: i.label }))} value={interval} onChange={setIv} />
-        <Chart symbol={sym} interval={interval} />
+        <Chart symbol={sym} interval={interval} dp={dp} />
       </View>
 
       <Section title="24h">
@@ -92,7 +92,7 @@ export default function MarketDetail() {
   );
 }
 
-function Chart({ symbol, interval }: { symbol: string; interval: KlineInterval }) {
+function Chart({ symbol, interval, dp }: { symbol: string; interval: KlineInterval; dp: number | null }) {
   const k = useKlines(symbol, interval);
   const label = INTERVALS.find((i) => i.key === interval)?.label ?? interval;
   if (k.isPending) return <LoadingState rows={1} height={200} label="Loading chart" />;
@@ -101,5 +101,16 @@ function Chart({ symbol, interval }: { symbol: string; interval: KlineInterval }
   const first = k.data[0].close;
   const last = k.data[k.data.length - 1].close;
   const pct = first ? ((last - first) / first) * 100 : null;
-  return <KlineChart candles={k.data} label={`${label} price chart, ${k.data.length} candles, ${spokenPct(pct)} over the range`} />;
+  const hi = Math.max(...k.data.map((c) => c.high));
+  const lo = Math.min(...k.data.map((c) => c.low));
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <View testID="range-summary" style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' }}>
+        <T variant="footnote">{label} range</T>
+        <PriceChange pct={pct} />
+        <T variant="footnote" style={{ fontVariant: ['tabular-nums'] }}>H {formatPrice(String(hi), dp)} · L {formatPrice(String(lo), dp)}</T>
+      </View>
+      <KlineChart candles={k.data} label={`${label} price chart, ${k.data.length} candles, ${spokenPct(pct)} over the range, high ${formatPrice(String(hi), dp)}, low ${formatPrice(String(lo), dp)}`} />
+    </View>
+  );
 }

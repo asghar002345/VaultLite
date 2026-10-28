@@ -13,10 +13,10 @@ export default function Currency() {
       <Notice tone="info">
         Testnet tokens have no market value. The Home total counts test stablecoins in USDT: test USDT 1:1 and test USDC at the live Binance USDC/USDT rate (shown under the total). Native test tokens are never priced. Market prices elsewhere are a labelled Binance mainnet reference.
       </Notice>
-      <Section title={`Valued at $1 (${stables.length})`}>
+      <Section title={`Counted in the Home total (${stables.length})`}>
         {stables.map((t) => (
           <T key={`${t.chain}:${t.address}`} variant="caption">
-            {t.symbol} · {t.name} · {t.chain}
+            {t.symbol} · {t.name} · {t.chain} — {t.symbol === 'USDT' ? '1:1' : 'live USDC/USDT rate'}
           </T>
         ))}
       </Section>

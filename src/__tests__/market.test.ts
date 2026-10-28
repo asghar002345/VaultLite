@@ -234,6 +234,16 @@ describe('WebSocket manager', () => {
     expect(FakeWS.all[0].closed).toBe(true);
     s.close();
   });
+  it('recycles a socket that never opens (connect timeout)', () => {
+    const { s } = mk();
+    s.setStreams(['ethusdt@ticker']);
+    jest.advanceTimersByTime(60_000);
+    expect(FakeWS.all[0].closed).toBe(true);
+    expect(s.getStatus()).toBe('reconnecting');
+    jest.advanceTimersByTime(1000);
+    expect(FakeWS.all).toHaveLength(2);
+    s.close();
+  });
   it('pauses (background/offline), resumes, and cleans up on close', () => {
     const { s } = mk();
     s.setStreams(['ethusdt@ticker']);
