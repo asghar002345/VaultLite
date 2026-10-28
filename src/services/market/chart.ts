@@ -11,3 +11,17 @@ export function linePath(candles: Pick<Candle, 'close'>[], w: number, h: number,
   const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   return { line, area: `${line} L${w},${h} L0,${h} Z` };
 }
+
+export type ChartPhase = 'skeleton' | 'error' | 'empty' | 'switching' | 'ready';
+
+/**
+ * What the chart should render. A failed fetch is an error even when placeholder data (the previous
+ * range, via keepPreviousData) is present: showing it under the new range label would be wrong data.
+ */
+export function chartPhase(q: { isPending: boolean; isError: boolean; isPlaceholderData: boolean; isFetching: boolean; data?: unknown[] }): ChartPhase {
+  if (q.isPending && !q.data) return 'skeleton';
+  if (q.isError) return 'error';
+  if (q.isPlaceholderData) return q.isFetching ? 'switching' : 'error';
+  if (!q.data || q.data.length < 2) return 'empty';
+  return 'ready';
+}

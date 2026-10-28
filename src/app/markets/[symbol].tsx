@@ -14,6 +14,7 @@ import { MK, useKlines, useTickers } from '@/hooks/use-market';
 import { useTheme } from '@/hooks/use-theme';
 import { useOffline } from '@/services/market/offline';
 import { INTERVALS, type KlineInterval } from '@/services/market/binance-rest';
+import { chartPhase } from '@/services/market/chart';
 import { formatCompact, formatPrice, spokenPct } from '@/services/market/format';
 import { baseOf } from '@/services/market/symbols';
 import { toggleFav, useFavorites } from '@/store/favorites';
@@ -99,16 +100,23 @@ export default function MarketDetail() {
 function Chart({ symbol, interval, dp }: { symbol: string; interval: KlineInterval; dp: number | null }) {
   const k = useKlines(symbol, interval);
   const label = INTERVALS.find((i) => i.key === interval)?.label ?? interval;
-  // First load: skeleton. Range switch: keep the previous chart and dim it under an overlay (placeholderData).
-  if (k.isPending) return <LoadingState rows={1} height={200} label="Loading chart" />;
-  if (k.isError && !k.isPlaceholderData) return <ErrorState title="Couldn't load chart" error={k.error} onRetry={() => k.refetch()} />;
-  if (!k.data || k.data.length < 2) return <EmptyState icon="markets" title="No chart data" body="Binance returned no candles for this range." />;
+  // First load: skeleton. Range switch: keep the previous chart dimmed under an overlay (placeholderData),
+  // but never present the previous range's candles as this range once the fetch failed or is paused offline.
+  const phase = chartPhase(k);
+  if (phase === 'skeleton') return <LoadingState rows={1} height={200} label="Loading chart" />;
+  if (phase === 'error')
+    return k.error ? (
+      <ErrorState title={`Couldn't load ${label} chart`} error={k.error} onRetry={() => k.refetch()} />
+    ) : (
+      <EmptyState icon="markets" title={`${label} chart unavailable`} body="You're offline. The chart loads when you reconnect." />
+    );
+  if (phase === 'empty' || !k.data) return <EmptyState icon="markets" title="No chart data" body="Binance returned no candles for this range." />;
   const first = k.data[0].close;
   const last = k.data[k.data.length - 1].close;
   const pct = first ? ((last - first) / first) * 100 : null;
   const hi = Math.max(...k.data.map((c) => c.high));
   const lo = Math.min(...k.data.map((c) => c.low));
-  const switching = k.isPlaceholderData && k.isFetching;
+  const switching = phase === 'switching';
   return (
     <LoadingOverlay active={switching} label={`Loading ${label}`} testID="chart-loading">
     <View style={{ gap: Spacing.sm }}>
