@@ -6,8 +6,10 @@ env:
   MNEMONIC: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
 ---
 - runFlow: require-pin.yaml
+- runFlow: assert-device-unlocked.yaml
 - clearState
 - launchApp
+- runFlow: assert-device-unlocked.yaml
 - extendedWaitUntil:
     visible:
       id: "import"

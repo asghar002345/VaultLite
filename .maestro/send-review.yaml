@@ -22,6 +22,7 @@ env:
 - tapOn:
     id: "to"
 - inputText: ${TO}
+- hideKeyboard   # close the system keyboard opened by the recipient field (it would cover Review)
 - tapOn:
     id: "amount"
 - inputText: ${AMOUNT}
@@ -36,15 +37,16 @@ env:
     when:
       visible: "Exceeds balance"
     commands:
-      - assertVisible:
-          id: "send-review"
-          enabled: false
+      # Maestro's enabled:false doesn't reliably match RN accessibilityState; assert behaviour instead:
+      # tapping the disabled Review must NOT open the review screen.
       - tapOn:
-          id: "send-review"   # no-op on a disabled button
-      - assertVisible:
-          id: "send"
+          id: "send-review"
+      - waitForAnimationToEnd:
+          timeout: 3000
       - assertNotVisible:
           id: "review-amount"
+      - assertVisible:
+          id: "send"
 # Funded: open the review screen, check it, then Cancel without holding "Hold to send".
 - runFlow:
     when:
