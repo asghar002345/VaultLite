@@ -56,7 +56,10 @@ export function encodeExecute(calls: Call[]): Hex {
 }
 
 /** uint192 nonce key: validator(20) | key(4). */
-export const nonceKeyFor = (validator: Hex, key = 0): bigint => (BigInt(validator) << 32n) | BigInt(key >>> 0);
+export function nonceKeyFor(validator: Hex, key = 0): bigint {
+  if (!Number.isInteger(key) || key < 0 || key > 0xffffffff) throw new RangeError(`nonce lane must be an integer in [0, 2^32): ${key}`);
+  return (BigInt(validator) << 32n) | BigInt(key);
+}
 
 /** Same digest as ECDSAOwnerValidator.accountMessageDigest(account, hash). */
 export function accountMessageDigest(account: Hex, hash: Hex, chainId: number): Hex {
@@ -79,8 +82,6 @@ export const STUB_SIGNATURE: Hex = concat([
   '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   '0x1c',
 ]);
-
-
 
 /** Local mirror of AccountFactory.getAddress: OZ Clones.predictDeterministicAddress(impl, keccak256(keccak256(initData) ++ salt)). */
 export function predictAccountAddress(initData: Hex, salt: Hex = DEFAULT_SALT, impl: Hex = C.smartAccountImpl, factory: Hex = C.accountFactory): Hex {
