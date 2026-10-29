@@ -10,9 +10,8 @@ import { describeAAError } from '@/modules/smartAccount/errors';
 import { createMockBundler, MOCK_PAYMASTER } from '@/modules/smartAccount/mock-bundler';
 import {
   assertTargetsNotModules,
-  encodeEnableSession,
-  encodeInstallSessionModule,
   InvalidSessionConfigError,
+  prepareSessionInstall,
   SESSION_MANAGEMENT_OPTS,
   SESSION_VERIFICATION_GAS_BASE,
   SESSION_VERIFICATION_GAS_PER_TOKEN_CALL,
@@ -49,6 +48,7 @@ const mk = (mockOpts: Parameters<typeof createMockBundler>[0] = {}, deployed = f
   const p = new VaultLiteSmartAccountProvider({ ...SMART_ACCOUNT_CONFIG.baseSepolia!, bundlerUrl: URL }, fakeChain({ deployed }), owner, { bundler });
   return { p, mock, bundler };
 };
+const NO_MODULES = { readContract: async () => false } as never;
 const call = [{ to: ESCROW, data: '0x12345678' as Hex }];
 const cfg = (over: Partial<SessionConfig> = {}): SessionConfig => ({
   sessionKey: '0x1111111111111111111111111111111111111111',
@@ -97,7 +97,8 @@ describe('B2: session ops get a verification gas buffer before pm_getPaymasterDa
 describe('S1: session/module management is sent self-paid', () => {
   it('SESSION_MANAGEMENT_OPTS: no pm_* calls, no paymaster', async () => {
     const { p, mock } = mk();
-    const op = await p.buildUserOperation([encodeInstallSessionModule(ACCOUNT, cfg())], undefined, SESSION_MANAGEMENT_OPTS);
+    const inst = await prepareSessionInstall(NO_MODULES, ACCOUNT, cfg(), { validatorInstalled: false });
+    const op = await p.buildUserOperation([inst], undefined, SESSION_MANAGEMENT_OPTS);
     expect(mock.methods().some((m) => m.startsWith('pm_'))).toBe(false);
     expect(op.paymaster).toBeUndefined();
   });
@@ -140,18 +141,45 @@ describe('S4: session config validated client-side', () => {
     ['RecoveryExecutor', { permissions: [{ target: C.recoveryExecutor, selector: '0x12345678' as Hex }] }],
     ['validUntil <= validAfter', { validAfter: 100, validUntil: 100 }],
     ['zero key', { sessionKey: '0x0000000000000000000000000000000000000000' as Hex }],
-  ])('rejects %s', (_n, over) => {
-    expect(() => encodeEnableSession(ACCOUNT, cfg(over))).toThrow(InvalidSessionConfigError);
-    expect(() => encodeInstallSessionModule(ACCOUNT, cfg(over))).toThrow(InvalidSessionConfigError);
+  ])('rejects %s (before any on-chain read)', async (_n, over) => {
+    const readContract = jest.fn(async () => false);
+    for (const validatorInstalled of [false, true]) {
+      await expect(prepareSessionInstall({ readContract } as never, ACCOUNT, cfg(over), { validatorInstalled })).rejects.toBeInstanceOf(InvalidSessionConfigError);
+    }
+    expect(readContract).not.toHaveBeenCalled();
   });
-  it('accepts MilestoneEscrow target and validUntil 0', () => {
-    expect(() => encodeEnableSession(ACCOUNT, cfg({ validUntil: 0, validAfter: 50 }))).not.toThrow();
+  it('accepts MilestoneEscrow target and validUntil 0', async () => {
+    await expect(prepareSessionInstall(NO_MODULES, ACCOUNT, cfg({ validUntil: 0, validAfter: 50 }), { validatorInstalled: true })).resolves.toMatchObject({ to: C.sessionKeyValidator });
+  });
+  it('prepareSessionInstall runs the on-chain module check and picks install vs enable', async () => {
+    const readContract = jest.fn(async ({ address, args }: { address: Hex; args: [bigint] }) => address === ESCROW && args[0] === 2n);
+    await expect(prepareSessionInstall({ readContract } as never, ACCOUNT, cfg(), { validatorInstalled: true })).rejects.toThrow(/module \(type 2\)/);
+    expect(readContract).toHaveBeenCalled();
+    expect((await prepareSessionInstall(NO_MODULES, ACCOUNT, cfg(), { validatorInstalled: false })).to).toBe(ACCOUNT);
   });
   it('assertTargetsNotModules uses isModuleType(1..4)', async () => {
     const client = { readContract: async ({ address, args }: { address: Hex; args: [bigint] }) => address === ESCROW && args[0] === 2n } as never;
     await expect(assertTargetsNotModules(client, cfg())).rejects.toThrow(/module \(type 2\)/);
     const none = { readContract: async () => { throw new Error('no fn'); } } as never;
     await expect(assertTargetsNotModules(none, cfg())).resolves.toBeUndefined();
+  });
+});
+
+describe('self-pay is forced for calls to the account or SKV', () => {
+  it.each([
+    ['account', (a: Hex) => a],
+    ['SKV', () => C.sessionKeyValidator as Hex],
+  ])('%s target: no pm_* calls even with default sponsorship', async (_n, to) => {
+    const { p, mock } = mk();
+    const self = await p.getAddress();
+    const op = await p.buildUserOperation([...call, { to: to(self), data: '0xdeadbeef' }]);
+    expect(op.paymaster).toBeUndefined();
+    expect(mock.methods().some((m) => m.startsWith('pm_'))).toBe(false);
+  });
+  it('explicit sponsor context cannot override it', async () => {
+    const { p, mock } = mk();
+    await p.buildUserOperation([{ to: C.sessionKeyValidator, data: '0x' }], undefined, { sponsor: { context: { x: 1 } } });
+    expect(mock.methods().some((m) => m.startsWith('pm_'))).toBe(false);
   });
 });
 
@@ -183,6 +211,16 @@ describe('S6: store expiry == on-chain validUntil', () => {
     expect(c.validUntil).toBe(5000);
     expect(c.sessionKey).toBe(meta.sessionKey);
     expect(() => store.configFor(meta, { permissions: [{ target: ESCROW, selector: '0x12345678' }], tokenCaps: [], maxUses: 3, nativeCap: 0n })).toThrow(InvalidSessionConfigError);
+  });
+});
+
+describe('SessionKeyStore.signer requires calls', () => {
+  it('gas buffer is derived from the calls passed', async () => {
+    const store = new SessionKeyStore(new MemoryKV(), () => 1000);
+    const meta = await store.create(ACCOUNT, { salt: DEFAULT_SALT, validUntil: 5000, tokenCaps: [USDC] });
+    await store.setSessionId(ACCOUNT, meta.sessionKey, SID);
+    const s = await store.signer(ACCOUNT, meta.sessionKey, [{ to: USDC }, { to: ESCROW }]);
+    expect(s?.verificationGasBuffer).toBe(SESSION_VERIFICATION_GAS_BASE + SESSION_VERIFICATION_GAS_PER_TOKEN_CALL);
   });
 });
 

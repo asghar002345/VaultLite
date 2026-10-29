@@ -96,9 +96,8 @@ export function sessionVerificationGasBuffer(calls: Call[], tokenCaps: { token: 
   return SESSION_VERIFICATION_GAS_BASE + SESSION_VERIFICATION_GAS_PER_TOKEN_CALL * BigInt(n);
 }
 
-/** account.installModule(VALIDATOR, SessionKeyValidator, cfg ? abi.encode(cfg) : 0x) — call to the account itself. */
-export function encodeInstallSessionModule(account: Hex, cfg?: SessionConfig): Call {
-  if (cfg) validateSessionConfig(account, cfg);
+/** account.installModule(VALIDATOR, SessionKeyValidator, abi.encode(cfg)) — call to the account itself. Internal: use prepareSessionInstall. */
+function encodeInstallSessionModule(account: Hex, cfg: SessionConfig): Call {
   const data = cfg ? encodeAbiParameters([SESSION_CONFIG_TUPLE], [cfg]) : '0x';
   return {
     to: account,
@@ -106,9 +105,25 @@ export function encodeInstallSessionModule(account: Hex, cfg?: SessionConfig): C
   };
 }
 
-export function encodeEnableSession(account: Hex, cfg: SessionConfig): Call {
-  validateSessionConfig(account, cfg);
+/** SessionKeyValidator.enableSession(cfg). Internal: use prepareSessionInstall. */
+function encodeEnableSession(cfg: SessionConfig): Call {
   return { to: C.sessionKeyValidator, data: encodeFunctionData({ abi: sessionKeyValidatorWriteAbi, functionName: 'enableSession', args: [cfg] }) };
+}
+
+/**
+ * The only way to encode a session install/enable call: sync validation (validateSessionConfig), then the
+ * on-chain isModuleType check (assertTargetsNotModules). Returns installModule(SKV, cfg) when the SKV is not yet
+ * installed on the account, otherwise SKV.enableSession(cfg). Send with SESSION_MANAGEMENT_OPTS (self-paid).
+ */
+export async function prepareSessionInstall(
+  client: Pick<PublicClient, 'readContract'>,
+  account: Hex,
+  cfg: SessionConfig,
+  opts: { validatorInstalled: boolean },
+): Promise<Call> {
+  validateSessionConfig(account, cfg);
+  await assertTargetsNotModules(client, cfg);
+  return opts.validatorInstalled ? encodeEnableSession(cfg) : encodeInstallSessionModule(account, cfg);
 }
 
 export const encodeRevokeSession = (sessionId: Hex): Call => ({
@@ -205,7 +220,7 @@ export class SessionKeyStore {
   }
 
   /** Loads the key (biometric prompt on device) and returns an OpSigner. Expired/unknown → null (and key deleted). */
-  async signer(account: Hex, sessionKey: Hex, calls: Call[] = [], prompt = 'Use session key'): Promise<OpSigner | null> {
+  async signer(account: Hex, sessionKey: Hex, calls: Call[], prompt = 'Use session key'): Promise<OpSigner | null> {
     const meta = (await this.list(account)).find((m) => m.sessionKey.toLowerCase() === sessionKey.toLowerCase());
     if (!meta?.sessionId) return null;
     if (meta.validUntil && meta.validUntil <= this.now()) {

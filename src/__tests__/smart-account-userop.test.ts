@@ -9,7 +9,7 @@ import { BASE_SEPOLIA_CONTRACTS as C, ENTRY_POINT_V07, SMART_ACCOUNT_CONFIG } fr
 import { DEFAULT_SALT, encodeInitData, nonceKeyFor, predictAccountAddress, STUB_SIGNATURE } from '@/modules/smartAccount/encoding';
 import { describeAAError } from '@/modules/smartAccount/errors';
 import { createMockBundler, MOCK_PAYMASTER } from '@/modules/smartAccount/mock-bundler';
-import { encodeEnableSession, encodeInstallSessionModule, SessionKeyStore, sessionSigner, type SessionConfig } from '@/modules/smartAccount/sessions';
+import { prepareSessionInstall, SessionKeyStore, sessionSigner, type SessionConfig } from '@/modules/smartAccount/sessions';
 import type { UserOperation } from '@/modules/smartAccount/types';
 import { VaultLiteSmartAccountProvider } from '@/modules/smartAccount/VaultLiteSmartAccountProvider';
 import { MemoryKV } from '@/vault/storage';
@@ -207,14 +207,15 @@ describe('session keys', () => {
     await expect(p.bundler.sendUserOperation(op)).resolves.toBe(p.userOpHash(op));
   });
 
-  it('install / enable calls encode the SessionConfig', () => {
-    const inst = encodeInstallSessionModule(ACCOUNT, cfgS);
+  it('install / enable calls encode the SessionConfig', async () => {
+    const noModules = { readContract: async () => false } as never;
+    const inst = await prepareSessionInstall(noModules, ACCOUNT, cfgS, { validatorInstalled: false });
     expect(inst.to).toBe(ACCOUNT);
     const abi = parseAbi(['function installModule(uint256 moduleTypeId, address module, bytes initData)']);
     const d = decodeFunctionData({ abi, data: inst.data! });
     expect(d.args?.[0]).toBe(1n);
     expect(getAddress(d.args![1] as Hex)).toBe(getAddress(C.sessionKeyValidator));
-    const en = encodeEnableSession(ACCOUNT, cfgS);
+    const en = await prepareSessionInstall(noModules, ACCOUNT, cfgS, { validatorInstalled: true });
     expect(getAddress(en.to)).toBe(getAddress(C.sessionKeyValidator));
     expect(en.data!.slice(0, 10)).toBe(encodeFunctionData({ abi: parseAbi(['function enableSession((address,uint48,uint48,uint32,uint128,bytes32,(address,bytes4)[],(address,uint128)[]))']), args: [[cfgS.sessionKey, 0, 2_000_000_000, 5, 0n, DEFAULT_SALT, [[ESCROW, '0x12345678']], []]] }).slice(0, 10));
   });
@@ -226,12 +227,12 @@ describe('session keys', () => {
     const store = new SessionKeyStore(kv, () => now);
     const meta = await store.create(ACCOUNT, { salt: DEFAULT_SALT, ttlSeconds: 60 });
     expect((setSpy.mock.calls as unknown[][]).find((c) => String(c[0]).endsWith('.pk'))?.[2]).toEqual({ requireAuth: true });
-    expect(await store.signer(ACCOUNT, meta.sessionKey)).toBeNull(); // no sessionId yet
+    expect(await store.signer(ACCOUNT, meta.sessionKey, [{ to: ESCROW, data: '0x12345678' }])).toBeNull(); // no sessionId yet
     await store.setSessionId(ACCOUNT, meta.sessionKey, sessionId);
-    const s = await store.signer(ACCOUNT, meta.sessionKey);
+    const s = await store.signer(ACCOUNT, meta.sessionKey, [{ to: ESCROW, data: '0x12345678' }]);
     expect(s?.validator).toBe(C.sessionKeyValidator);
     now = 2_000;
-    expect(await store.signer(ACCOUNT, meta.sessionKey)).toBeNull();
+    expect(await store.signer(ACCOUNT, meta.sessionKey, [{ to: ESCROW, data: '0x12345678' }])).toBeNull();
     expect(await store.list(ACCOUNT)).toEqual([]);
   });
 
