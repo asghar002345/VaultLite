@@ -18,11 +18,32 @@ env:
     id: "import-secret"
 - inputText: ${MNEMONIC}
 - hideKeyboard
+# The IME closing re-lays out the screen and moves Continue; a tap during that animation can miss
+# (seen on the first flow of a run on a real Pixel). Wait for it to settle and for Continue to be enabled.
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "import-continue"
+      enabled: true
+    timeout: 10000
 - tapOn:
     id: "import-continue"
+- assertNotVisible: "Invalid recovery phrase.*"   # input mangled → fail with a clear reason
+# Retry the tap once if we are still on the Import screen (missed tap), then wait for Security.
+- runFlow:
+    when:
+      visible:
+        id: "import-continue"
+    commands:
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - tapOn:
+          id: "import-continue"
+          optional: true
 - extendedWaitUntil:
     visible: "Secure your wallet"
-    timeout: 10000
+    timeout: 20000
 - tapOn:
     id: "pin"
 - inputText: ${PIN}
