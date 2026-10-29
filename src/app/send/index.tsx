@@ -16,6 +16,7 @@ import { validateAddress } from '@/lib/address';
 import { parseAmount } from '@/lib/amount';
 import { formatAmount } from '@/lib/format';
 import { applyKey } from '@/lib/keypad';
+import { keypadInputProps } from '@/lib/keypad-input';
 import { takeScan } from '@/lib/scan-bus';
 import { findIn, useAllTokens } from '@/store/custom-tokens';
 
@@ -112,7 +113,7 @@ export default function Send() {
             placeholder="0"
             placeholderTextColor={t.textTertiary}
             keyboardType="decimal-pad"
-            showSoftInputOnFocus={false}
+            {...keypadInputProps()}
             style={[{ fontFamily: Fonts.ui, fontWeight: '300', fontVariant: ['tabular-nums'], fontSize: 56, lineHeight: 64, color: t.text, textAlign: 'center', width: Math.min(260, Math.max(1, (amount || '0').length) * 27 + 12), padding: 0 }, Tabular]}
           />
           <T style={{ fontFamily: Fonts.display, fontSize: 24, color: t.primary }}>{token.symbol}</T>
