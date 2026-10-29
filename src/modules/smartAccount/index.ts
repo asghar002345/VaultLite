@@ -5,3 +5,4 @@ export { BundlerClient, BundlerNotConfiguredError, BundlerRpcError, toRpcUserOp 
 export { aaCode, describeAAError } from './errors';
 export { VaultLiteSmartAccountProvider, type OpSigner, type ProviderOptions } from './VaultLiteSmartAccountProvider';
 export { readSmartAccountStatus } from './read';
+export * from './sessions';
