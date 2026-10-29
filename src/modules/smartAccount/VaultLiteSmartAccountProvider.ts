@@ -4,7 +4,7 @@ import { getUserOperationHash } from 'viem/account-abstraction';
 import type { ChainKey } from '@/config/chains';
 
 import { accountFactoryAbi, ecdsaValidatorAbi, entryPointAbi, sessionKeyValidatorAbi } from './abis';
-import { BundlerClient, BundlerNotConfiguredError, type UserOpReceipt } from './client';
+import { BundlerClient, BundlerNotConfiguredError, BundlerRpcError, definedOnly, type PaymasterFields, type UserOpReceipt } from './client';
 import { BASE_SEPOLIA_CONTRACTS as C, ENTRY_POINT_V07 } from './config';
 import {
   accountMessageDigest,
@@ -20,6 +20,16 @@ import type { Call, Hex, SmartAccountChainConfig, SmartAccountProvider, UserOper
 
 export { BundlerNotConfiguredError, BundlerRpcError } from './client';
 
+/**
+ * The bundler accepted an op under a different hash than we signed. Detection only: the op is already
+ * submitted, so callers must surface this as a hard error and NOT poll a receipt for the bundler's hash.
+ */
+export class UserOpHashMismatchError extends Error {
+  constructor(readonly expected: Hex, readonly returned: Hex) {
+    super(`Bundler returned userOpHash ${returned}, expected ${expected}. The op may have been altered; do not trust its status.`);
+  }
+}
+
 type Signer = Pick<LocalAccount, 'address' | 'signMessage'> & { sign: NonNullable<LocalAccount['sign']> };
 
 /** Which validator signs the op. Default: ECDSA owner. Session keys pass their own (see sessions.ts). */
@@ -29,6 +39,20 @@ export interface OpSigner {
   nonceLane?: number;
   stubSignature: Hex;
   signUserOpHash: (userOpHash: Hex) => Promise<Hex>;
+  /**
+   * Added to the estimated verificationGasLimit. Session validation fails early on the stub signature
+   * (before its SSTOREs), so estimation under-counts; see sessionVerificationGasBuffer().
+   */
+  verificationGasBuffer?: bigint;
+  /** Validator must already be installed (session keys): reject undeployed accounts up front. */
+  requiresDeployed?: boolean;
+}
+
+export interface BuildOptions {
+  /** Per-op override of the provider default. Session/module management is never sponsored: pass false. */
+  sponsor?: false | { context?: Record<string, unknown> };
+  /** When the proxy answers not_sponsorable: 'throw' (default; UI asks the user) or 'self-pay' (retry unsponsored). */
+  onNotSponsorable?: 'throw' | 'self-pay';
 }
 
 export interface ProviderOptions {
@@ -42,6 +66,7 @@ export interface ProviderOptions {
 export class VaultLiteSmartAccountProvider implements SmartAccountProvider {
   readonly chain: ChainKey;
   readonly bundler: BundlerClient;
+  /** Cached per instance: one provider = one (owner, salt) pair. Create a new provider for another salt. */
   private address?: Hex;
   private readonly initData: Hex;
   private readonly salt: Hex;
@@ -149,42 +174,57 @@ export class VaultLiteSmartAccountProvider implements SmartAccountProvider {
   }
 
   /**
-   * Full PIMLICO_FLOW sequence: gas price → (pm stub) → estimate → (pm data) → userOpHash → sign.
-   * Paymaster data is final before signing because paymasterAndData is part of the userOpHash.
+   * Full PIMLICO_FLOW sequence: supported EP check → gas price → (pm stub) → estimate (+ signer buffer) →
+   * (pm data) → userOpHash → sign. Paymaster data is final before signing (paymasterAndData is hashed).
    */
-  async buildUserOperation(calls: Call[], signer: OpSigner = this.ownerSigner): Promise<UserOperation> {
+  async buildUserOperation(calls: Call[], signer: OpSigner = this.ownerSigner, opts: BuildOptions = {}): Promise<UserOperation> {
     if (!this.bundler.configured) throw new BundlerNotConfiguredError();
+    if (signer.requiresDeployed && !(await this.isDeployed())) {
+      throw new Error('This signer needs a deployed account with its validator installed (deploy with an owner op first).');
+    }
+    const sponsor = opts.sponsor === undefined ? this.sponsor : opts.sponsor;
+    try {
+      return await this.build(calls, signer, sponsor);
+    } catch (e) {
+      if (sponsor && opts.onNotSponsorable === 'self-pay' && e instanceof BundlerRpcError && e.notSponsorable) return this.build(calls, signer, false);
+      throw e;
+    }
+  }
+
+  private async build(calls: Call[], signer: OpSigner, sponsor: ProviderOptions['sponsor']): Promise<UserOperation> {
+    await this.bundler.assertEntryPointSupported();
     let op: UserOperation = { ...(await this.draftUserOperation(calls, signer)), ...(await this.bundler.gasPrice()) };
-    const sponsor = this.sponsor;
-    let final = false;
+    let stub: PaymasterFields | null = null;
     if (sponsor) {
-      const stub = await this.bundler.paymasterStubData(op, sponsor.context);
-      final = !!stub.isFinal;
+      stub = await this.bundler.paymasterStubData(op, sponsor.context);
       op = { ...op, ...stripFinal(stub) };
     }
+    const final = !!stub?.isFinal;
     const g = await this.bundler.estimateGas(op);
     op = {
       ...op,
       callGasLimit: g.callGasLimit,
-      verificationGasLimit: g.verificationGasLimit,
+      verificationGasLimit: g.verificationGasLimit + (signer.verificationGasBuffer ?? 0n),
       preVerificationGas: g.preVerificationGas,
-      ...(sponsor
-        ? {
-            paymasterVerificationGasLimit: g.paymasterVerificationGasLimit ?? op.paymasterVerificationGasLimit,
-            paymasterPostOpGasLimit: g.paymasterPostOpGasLimit ?? op.paymasterPostOpGasLimit,
-          }
-        : {}),
     };
-    if (sponsor && !final) op = { ...op, ...stripFinal(await this.bundler.paymasterData(op, sponsor.context)) };
+    // A final stub's paymasterData is already signed over its own gas limits: keep them (else AA34).
+    if (sponsor && !final) {
+      op = { ...op, ...definedOnly({ paymasterVerificationGasLimit: g.paymasterVerificationGasLimit, paymasterPostOpGasLimit: g.paymasterPostOpGasLimit }) };
+      // pm_getPaymasterData usually returns only paymaster/paymasterData: merge defined keys only.
+      op = { ...op, ...stripFinal(await this.bundler.paymasterData(op, sponsor.context)) };
+    }
+    if (sponsor && (op.paymasterVerificationGasLimit === undefined || op.paymasterPostOpGasLimit === undefined)) {
+      throw new Error('Sponsored op is missing paymaster gas limits (stub, estimate and paymaster data all omitted them).');
+    }
     return { ...op, signature: await signer.signUserOpHash(this.userOpHash(op)) };
   }
 
-  async sendUserOperation(calls: Call[], signer?: OpSigner): Promise<{ userOpHash: Hex }> {
-    const op = await this.buildUserOperation(calls, signer);
-    const userOpHash = await this.bundler.sendUserOperation(op);
-    const local = this.userOpHash(op);
-    if (userOpHash.toLowerCase() !== local.toLowerCase()) throw new Error(`Bundler returned unexpected userOpHash ${userOpHash} (expected ${local})`);
-    return { userOpHash };
+  async sendUserOperation(calls: Call[], signer?: OpSigner, opts?: BuildOptions): Promise<{ userOpHash: Hex }> {
+    const op = await this.buildUserOperation(calls, signer, opts);
+    const expected = this.userOpHash(op); // computed BEFORE submission
+    const returned = await this.bundler.sendUserOperation(op);
+    if (returned.toLowerCase() !== expected.toLowerCase()) throw new UserOpHashMismatchError(expected, returned);
+    return { userOpHash: expected };
   }
 
   async waitForReceipt(userOpHash: Hex, timeoutMs = 120_000): Promise<{ txHash: Hex; success: boolean } & UserOpReceipt> {

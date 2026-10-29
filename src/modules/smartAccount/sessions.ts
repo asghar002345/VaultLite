@@ -5,14 +5,14 @@
  * - sessionId = sessionIdOf(account, key, salt), read AFTER install (it includes the per-account epoch).
  * - Session ops: nonce key = SessionKeyValidator << 32, signature = sessionId(32) ‖ EIP-191 sig(65).
  */
-import { concat, encodeAbiParameters, encodeFunctionData, parseAbi, type Hex } from 'viem';
+import { concat, encodeAbiParameters, encodeFunctionData, getAddress, parseAbi, zeroAddress, type Hex, type PublicClient } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { smartAccountAbi } from './abis';
 import { BASE_SEPOLIA_CONTRACTS as C } from './config';
 import { MODULE_TYPE_VALIDATOR, STUB_SIGNATURE } from './encoding';
 import type { Call } from './types';
-import type { OpSigner } from './VaultLiteSmartAccountProvider';
+import type { BuildOptions, OpSigner } from './VaultLiteSmartAccountProvider';
 import type { SecureKV } from '@/vault/storage';
 
 export interface SessionConfig {
@@ -51,8 +51,54 @@ const SESSION_CONFIG_TUPLE = {
 /** Default policy: short expiry. Callers must still pass explicit permissions. */
 export const DEFAULT_SESSION_TTL_S = 24 * 3600;
 
+/** Session/module management ops are never sponsored by the proxy (BUNDLER_PROXY.md §4): send them self-paid. */
+export const SESSION_MANAGEMENT_OPTS: BuildOptions = { sponsor: false };
+
+export class InvalidSessionConfigError extends Error {}
+
+/** Addresses SessionKeyValidator._enable rejects as permission targets (account, SKV and known modules). */
+export function forbiddenSessionTargets(account: Hex): string[] {
+  return [account, C.sessionKeyValidator, C.ecdsaOwnerValidator, C.recoveryExecutor, C.escrowExecutor].map((a) => getAddress(a));
+}
+
+/**
+ * Client-side mirror of the on-chain checks, so an invalid config never becomes a reverting (gas-burning) op:
+ * non-zero session key, validUntil == 0 or > validAfter, and no account/module permission targets.
+ */
+export function validateSessionConfig(account: Hex, cfg: SessionConfig): void {
+  if (!cfg.sessionKey || getAddress(cfg.sessionKey) === zeroAddress) throw new InvalidSessionConfigError('Session key must be a non-zero address.');
+  if (cfg.validUntil !== 0 && cfg.validUntil <= cfg.validAfter) throw new InvalidSessionConfigError('validUntil must be 0 (no expiry) or after validAfter.');
+  if (!cfg.permissions.length) throw new InvalidSessionConfigError('A session needs at least one permission.');
+  const bad = new Set(forbiddenSessionTargets(account));
+  for (const p of cfg.permissions) {
+    if (bad.has(getAddress(p.target))) throw new InvalidSessionConfigError(`Permission target ${p.target} is the account or a module; SessionKeyValidator rejects it.`);
+  }
+}
+
+const isModuleTypeAbi = parseAbi(['function isModuleType(uint256 moduleTypeId) view returns (bool)']);
+
+/** Optional on-chain check: any target answering isModuleType(1..4) == true is a module (feat/hardening rejects it). */
+export async function assertTargetsNotModules(client: Pick<PublicClient, 'readContract'>, cfg: SessionConfig): Promise<void> {
+  for (const p of cfg.permissions) {
+    for (const t of [1n, 2n, 3n, 4n]) {
+      const yes = await client.readContract({ address: p.target, abi: isModuleTypeAbi, functionName: 'isModuleType', args: [t] }).catch(() => false);
+      if (yes) throw new InvalidSessionConfigError(`Permission target ${p.target} is an ERC-7579 module (type ${t}).`);
+    }
+  }
+}
+
+/** Extra verification gas for session ops: ~80k base (uses/nativeSpent SSTOREs) + ~25k per token-capped call. */
+export const SESSION_VERIFICATION_GAS_BASE = 80_000n;
+export const SESSION_VERIFICATION_GAS_PER_TOKEN_CALL = 25_000n;
+export function sessionVerificationGasBuffer(calls: Call[], tokenCaps: { token: Hex }[]): bigint {
+  const capped = new Set(tokenCaps.map((t) => getAddress(t.token)));
+  const n = calls.filter((c) => capped.has(getAddress(c.to))).length;
+  return SESSION_VERIFICATION_GAS_BASE + SESSION_VERIFICATION_GAS_PER_TOKEN_CALL * BigInt(n);
+}
+
 /** account.installModule(VALIDATOR, SessionKeyValidator, cfg ? abi.encode(cfg) : 0x) — call to the account itself. */
 export function encodeInstallSessionModule(account: Hex, cfg?: SessionConfig): Call {
+  if (cfg) validateSessionConfig(account, cfg);
   const data = cfg ? encodeAbiParameters([SESSION_CONFIG_TUPLE], [cfg]) : '0x';
   return {
     to: account,
@@ -60,24 +106,34 @@ export function encodeInstallSessionModule(account: Hex, cfg?: SessionConfig): C
   };
 }
 
-export const encodeEnableSession = (cfg: SessionConfig): Call => ({
-  to: C.sessionKeyValidator,
-  data: encodeFunctionData({ abi: sessionKeyValidatorWriteAbi, functionName: 'enableSession', args: [cfg] }),
-});
+export function encodeEnableSession(account: Hex, cfg: SessionConfig): Call {
+  validateSessionConfig(account, cfg);
+  return { to: C.sessionKeyValidator, data: encodeFunctionData({ abi: sessionKeyValidatorWriteAbi, functionName: 'enableSession', args: [cfg] }) };
+}
 
 export const encodeRevokeSession = (sessionId: Hex): Call => ({
   to: C.sessionKeyValidator,
   data: encodeFunctionData({ abi: sessionKeyValidatorWriteAbi, functionName: 'revokeSession', args: [sessionId] }),
 });
 
-/** OpSigner for a session: signature = sessionId ‖ EIP-191(userOpHash) by the session key. */
-export function sessionSigner(sessionId: Hex, privateKey: Hex, nonceLane = 0): OpSigner {
-  const key = privateKeyToAccount(privateKey);
+/**
+ * One-shot OpSigner for a session: signature = sessionId ‖ EIP-191(userOpHash) by the session key.
+ * The private key is dropped after the first signature; load a fresh signer (SessionKeyStore.signer) per op.
+ */
+export function sessionSigner(sessionId: Hex, privateKey: Hex, opts: { nonceLane?: number; verificationGasBuffer?: bigint } = {}): OpSigner {
+  let pk: Hex | null = privateKey;
   return {
     validator: C.sessionKeyValidator,
-    nonceLane,
+    nonceLane: opts.nonceLane ?? 0,
     stubSignature: concat([sessionId, STUB_SIGNATURE]),
-    signUserOpHash: async (h) => concat([sessionId, await key.signMessage({ message: { raw: h } })]),
+    verificationGasBuffer: opts.verificationGasBuffer ?? SESSION_VERIFICATION_GAS_BASE,
+    requiresDeployed: true,
+    signUserOpHash: async (h) => {
+      if (!pk) throw new Error('Session signer already used; load a new one for each op.');
+      const key = privateKeyToAccount(pk);
+      pk = null;
+      return concat([sessionId, await key.signMessage({ message: { raw: h } })]);
+    },
   };
 }
 
@@ -86,7 +142,10 @@ export interface StoredSessionMeta {
   sessionKey: Hex;
   salt: Hex;
   sessionId: Hex | null; // set after sessionIdOf read post-install
+  /** Same value as the on-chain SessionConfig.validUntil (0 = no expiry). */
   validUntil: number;
+  /** Token-capped targets, for the verification gas buffer. */
+  tokenCaps: Hex[];
   createdAt: number;
 }
 
@@ -102,7 +161,7 @@ export class SessionKeyStore {
     if (!raw) return [];
     try {
       const v = JSON.parse(raw);
-      return Array.isArray(v) ? (v as StoredSessionMeta[]) : [];
+      return Array.isArray(v) ? (v as StoredSessionMeta[]).map((m) => ({ ...m, tokenCaps: m.tokenCaps ?? [] })) : [];
     } catch {
       return [];
     }
@@ -112,8 +171,8 @@ export class SessionKeyStore {
     await this.kv.set(META(account), JSON.stringify(all));
   }
 
-  /** Generates a fresh key, stores it, returns its address (the private key never leaves the store). */
-  async create(account: Hex, opts: { salt: Hex; ttlSeconds?: number }): Promise<StoredSessionMeta> {
+  /** Generates and stores a fresh key; returns its metadata. Build the on-chain cfg with configFor(). */
+  async create(account: Hex, opts: { salt: Hex; ttlSeconds?: number; validUntil?: number; tokenCaps?: Hex[] }): Promise<StoredSessionMeta> {
     const pk = generatePrivateKey();
     const sessionKey = privateKeyToAccount(pk).address;
     await this.kv.set(PK(account, sessionKey), pk, { requireAuth: true });
@@ -122,11 +181,22 @@ export class SessionKeyStore {
       sessionKey,
       salt: opts.salt,
       sessionId: null,
-      validUntil: this.now() + (opts.ttlSeconds ?? DEFAULT_SESSION_TTL_S),
+      validUntil: opts.validUntil ?? this.now() + (opts.ttlSeconds ?? DEFAULT_SESSION_TTL_S),
+      tokenCaps: opts.tokenCaps ?? [],
       createdAt: this.now(),
     };
     await this.save(account, [...(await this.list(account)), meta]);
     return meta;
+  }
+
+  /** On-chain SessionConfig derived from stored metadata, so local expiry == chain expiry. */
+  configFor(meta: StoredSessionMeta, policy: Pick<SessionConfig, 'permissions' | 'tokenCaps' | 'maxUses' | 'nativeCap'> & { validAfter?: number }): SessionConfig {
+    const caps = new Set(meta.tokenCaps.map((t) => getAddress(t)));
+    const missing = policy.tokenCaps.filter((t) => !caps.has(getAddress(t.token)));
+    if (missing.length || policy.tokenCaps.length !== meta.tokenCaps.length) throw new InvalidSessionConfigError('tokenCaps differ from the stored session metadata.');
+    const cfg: SessionConfig = { sessionKey: meta.sessionKey, validAfter: policy.validAfter ?? 0, validUntil: meta.validUntil, salt: meta.salt, ...policy };
+    validateSessionConfig(meta.account, cfg);
+    return cfg;
   }
 
   async setSessionId(account: Hex, sessionKey: Hex, sessionId: Hex) {
@@ -135,7 +205,7 @@ export class SessionKeyStore {
   }
 
   /** Loads the key (biometric prompt on device) and returns an OpSigner. Expired/unknown → null (and key deleted). */
-  async signer(account: Hex, sessionKey: Hex, prompt = 'Use session key'): Promise<OpSigner | null> {
+  async signer(account: Hex, sessionKey: Hex, calls: Call[] = [], prompt = 'Use session key'): Promise<OpSigner | null> {
     const meta = (await this.list(account)).find((m) => m.sessionKey.toLowerCase() === sessionKey.toLowerCase());
     if (!meta?.sessionId) return null;
     if (meta.validUntil && meta.validUntil <= this.now()) {
@@ -143,7 +213,7 @@ export class SessionKeyStore {
       return null;
     }
     const pk = (await this.kv.get(PK(account, sessionKey), { requireAuth: true, prompt })) as Hex | null;
-    return pk ? sessionSigner(meta.sessionId, pk) : null;
+    return pk ? sessionSigner(meta.sessionId, pk, { verificationGasBuffer: sessionVerificationGasBuffer(calls, meta.tokenCaps.map((token) => ({ token }))) }) : null;
   }
 
   /** Delete key + metadata (call after an on-chain revokeSession op, or on expiry). */
