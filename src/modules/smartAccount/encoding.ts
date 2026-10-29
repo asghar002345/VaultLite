@@ -71,8 +71,14 @@ export function accountMessageDigest(account: Hex, hash: Hex, chainId: number): 
 /** OZ AccountERC7579.isValidSignature expects validator(20) ++ signature. */
 export const wrapErc1271Signature = (validator: Hex, sig: Hex): Hex => concat([validator, sig]);
 
-/** 65-byte dummy for gas estimation (valid r/s shape, recovers to a random address). */
-export const STUB_SIGNATURE: Hex = `0x${'ff'.repeat(64)}1c`;
+/**
+ * 65-byte dummy for gas estimation, same as smart-account e2e/e2e.ts: well-formed (low s), recovers to a
+ * random address, so the validator returns SIG_VALIDATION_FAILED instead of reverting.
+ */
+export const STUB_SIGNATURE: Hex = concat([
+  '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  '0x1c',
+]);
 
 
 
