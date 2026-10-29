@@ -182,7 +182,10 @@ export class VaultLiteSmartAccountProvider implements SmartAccountProvider {
     if (signer.requiresDeployed && !(await this.isDeployed())) {
       throw new Error('This signer needs a deployed account with its validator installed (deploy with an owner op first).');
     }
-    const sponsor = opts.sponsor === undefined ? this.sponsor : opts.sponsor;
+    // Calls to the account itself (module mgmt) or the SessionKeyValidator are never sponsored (review S1/S4).
+    const self = (await this.getAddress()).toLowerCase();
+    const forceSelfPay = calls.some((c) => [self, C.sessionKeyValidator.toLowerCase()].includes(c.to.toLowerCase()));
+    const sponsor = forceSelfPay ? false : opts.sponsor === undefined ? this.sponsor : opts.sponsor;
     try {
       return await this.build(calls, signer, sponsor);
     } catch (e) {
