@@ -11,7 +11,7 @@ env:
   PIN: "135790"
   # Second account of the same public test mnemonic (not a real person's address).
   TO: "0x6Fac4D18c912343BF86fa7049364Dd4E424Ab9C0"
-  AMOUNT: "0.001"
+  AMOUNT: "0.001"   # typed via the in-app keypad below; keep in sync
 ---
 - runFlow: subflows/import-test-wallet.yaml
 - tapOn:
@@ -23,9 +23,18 @@ env:
     id: "to"
 - inputText: ${TO}
 - hideKeyboard   # close the system keyboard opened by the recipient field (it would cover Review)
+# Enter the amount with the app's own keypad (testIDs amt-<key>). The amount field never takes the
+# system keyboard (v4.2.1 dismisses it on focus), so Maestro inputText cannot type into it.
+# AMOUNT is fixed to 0.001: "." → "0.", then 0, 0, 1.
 - tapOn:
-    id: "amount"
-- inputText: ${AMOUNT}
+    id: "amt-\\."
+- tapOn:
+    id: "amt-0"
+- tapOn:
+    id: "amt-0"
+- tapOn:
+    id: "amt-1"
+- assertVisible: "0\\.001"
 # No hideKeyboard: the amount field suppresses the soft keyboard (custom keypad), and on Android
 # hideKeyboard can fall back to a Back press that leaves the Send screen.
 # Wait for the balance to load (caption leaves "loading…") so the Review state is final.
