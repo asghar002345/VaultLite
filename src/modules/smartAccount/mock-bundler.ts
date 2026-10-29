@@ -6,6 +6,7 @@
 import { recoverMessageAddress, type Hex } from 'viem';
 import { getUserOperationHash } from 'viem/account-abstraction';
 
+import { BUNDLER_METHODS } from './client';
 import { ENTRY_POINT_V07 } from './config';
 import type { UserOperation } from './types';
 
@@ -20,6 +21,13 @@ export interface MockBundlerOptions {
   /** Signature prefix length (bytes) before the 65-byte ECDSA sig (32 for session keys). */
   sigPrefixBytes?: number;
   stubIsFinal?: boolean;
+  /** Realistic ERC-7677: pm_getPaymasterData returns only paymaster + paymasterData (no gas limits). */
+  pmDataNoGas?: boolean;
+  /** Answer pm_* with the proxy's 403 not_sponsorable (-32002). */
+  notSponsorable?: boolean;
+  supportedEntryPoints?: Hex[];
+  /** Return this hash from eth_sendUserOperation instead of the real one. */
+  tamperHash?: Hex;
   receiptAfterPolls?: number;
 }
 
@@ -56,13 +64,19 @@ export function createMockBundler(opts: MockBundlerOptions = {}) {
   let polls = 0;
 
   const handle = async (method: string, params: unknown[]): Promise<unknown> => {
+    // Mirrors the proxy method allowlist (docs/BUNDLER_PROXY.md §2, without pm_sponsorUserOperation).
+    if (!(BUNDLER_METHODS as readonly string[]).includes(method)) throw { code: -32001, message: 'method_not_allowed', data: { reason: `${method} is not allowlisted` } };
     if (opts.errors?.[method]) throw { code: -32500, message: opts.errors[method] };
+    if (opts.notSponsorable && method.startsWith('pm_')) throw { code: -32002, message: 'not_sponsorable', data: { reason: 'target not allowlisted' } };
     switch (method) {
+      case 'eth_supportedEntryPoints':
+        return opts.supportedEntryPoints ?? [ENTRY_POINT_V07];
       case 'pimlico_getUserOperationGasPrice':
         return { slow: { maxFeePerGas: '0x1', maxPriorityFeePerGas: '0x1' }, standard: { maxFeePerGas: '0x2', maxPriorityFeePerGas: '0x1' }, fast: { maxFeePerGas: '0x124f80', maxPriorityFeePerGas: '0xf4240' } };
       case 'pm_getPaymasterStubData':
         return { paymaster: MOCK_PAYMASTER, paymasterData: '0x' + '00'.repeat(32), paymasterVerificationGasLimit: '0x9c40', paymasterPostOpGasLimit: '0x1', isFinal: !!opts.stubIsFinal };
       case 'pm_getPaymasterData':
+        if (opts.pmDataNoGas) return { paymaster: MOCK_PAYMASTER, paymasterData: '0x' + 'ab'.repeat(32) };
         return { paymaster: MOCK_PAYMASTER, paymasterData: '0x' + 'ab'.repeat(32), paymasterVerificationGasLimit: '0x9c40', paymasterPostOpGasLimit: '0x1' };
       case 'eth_estimateUserOperationGas': {
         const op = params[0] as Record<string, Hex>;
@@ -80,15 +94,19 @@ export function createMockBundler(opts: MockBundlerOptions = {}) {
           if (who?.toLowerCase() !== opts.expectSigner.toLowerCase()) throw { code: -32507, message: 'UserOperation reverted during simulation with reason: AA24 signature error' };
         }
         sent.push(op);
-        return hash;
+        return opts.tamperHash ?? hash;
       }
       case 'eth_getUserOperationReceipt': {
         polls++;
         if (polls <= (opts.receiptAfterPolls ?? 0)) return null;
         return { success: true, actualGasCost: '0x10', paymaster: MOCK_PAYMASTER, receipt: { transactionHash: '0x' + '11'.repeat(32) } };
       }
+      case 'pimlico_getUserOperationStatus':
+        return { status: 'included', transactionHash: '0x' + '11'.repeat(32) };
+      case 'eth_getUserOperationByHash':
+        return null;
       default:
-        throw { code: -32601, message: `method not allowed: ${method}` };
+        throw { code: -32601, message: `unhandled: ${method}` };
     }
   };
 
