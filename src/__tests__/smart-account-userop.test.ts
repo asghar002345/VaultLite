@@ -17,6 +17,7 @@ import { MemoryKV } from '@/vault/storage';
 const owner = mnemonicToAccount('test test test test test test test test test test test junk', { addressIndex: 0 });
 const ACCOUNT: Hex = '0x9fC283814D91Aa88fcA0C6c60d1e868b582ca0dd'; // factory.getAddress, read on Base Sepolia 2026-10-28
 const URL = 'https://proxy.test/api/bundler/84532';
+const ESCROW: Hex = '0xD861488f2ba02df4047DDE41EFeCdCEd1FD6E528'; // MilestoneEscrow (not a module)
 
 /** Offline stand-in for the Base Sepolia public client: factory.getAddress via local CREATE2, getNonce, getCode. */
 function fakeChain({ deployed = false, seq = 0n } = {}) {
@@ -96,7 +97,7 @@ describe('build + sign + send via mock bundler proxy', () => {
   it('sponsored: ERC-7677 stub → estimate → final paymaster data, signed after paymaster fields', async () => {
     const { p, mock } = provider();
     const op = await p.buildUserOperation(call);
-    expect(mock.methods()).toEqual(['pimlico_getUserOperationGasPrice', 'pm_getPaymasterStubData', 'eth_estimateUserOperationGas', 'pm_getPaymasterData']);
+    expect(mock.methods()).toEqual(['eth_supportedEntryPoints', 'pimlico_getUserOperationGasPrice', 'pm_getPaymasterStubData', 'eth_estimateUserOperationGas', 'pm_getPaymasterData']);
     expect(op.paymaster).toBe(MOCK_PAYMASTER);
     expect(op.paymasterData).toBe('0x' + 'ab'.repeat(32));
     expect(op.paymasterVerificationGasLimit).toBe(0x9c40n);
@@ -146,7 +147,7 @@ describe('build + sign + send via mock bundler proxy', () => {
     const e = await provider({ mock }).p.buildUserOperation(call).catch((x) => x);
     expect(e).toBeInstanceOf(BundlerRpcError);
     expect(e.method).toBe('pm_getPaymasterStubData');
-    expect(describeAAError(e.message)).toMatch(/sponsor rejected/);
+    expect(describeAAError(e.message)).toMatch(/validation reverted/);
   });
 });
 
@@ -187,7 +188,7 @@ describe('session keys', () => {
     maxUses: 5,
     nativeCap: 0n,
     salt: DEFAULT_SALT,
-    permissions: [{ target: C.escrowExecutor, selector: '0x12345678' }],
+    permissions: [{ target: ESCROW, selector: '0x12345678' }],
     tokenCaps: [],
   };
 
@@ -213,9 +214,9 @@ describe('session keys', () => {
     const d = decodeFunctionData({ abi, data: inst.data! });
     expect(d.args?.[0]).toBe(1n);
     expect(getAddress(d.args![1] as Hex)).toBe(getAddress(C.sessionKeyValidator));
-    const en = encodeEnableSession(cfgS);
+    const en = encodeEnableSession(ACCOUNT, cfgS);
     expect(getAddress(en.to)).toBe(getAddress(C.sessionKeyValidator));
-    expect(en.data!.slice(0, 10)).toBe(encodeFunctionData({ abi: parseAbi(['function enableSession((address,uint48,uint48,uint32,uint128,bytes32,(address,bytes4)[],(address,uint128)[]))']), args: [[cfgS.sessionKey, 0, 2_000_000_000, 5, 0n, DEFAULT_SALT, [[C.escrowExecutor, '0x12345678']], []]] }).slice(0, 10));
+    expect(en.data!.slice(0, 10)).toBe(encodeFunctionData({ abi: parseAbi(['function enableSession((address,uint48,uint48,uint32,uint128,bytes32,(address,bytes4)[],(address,uint128)[]))']), args: [[cfgS.sessionKey, 0, 2_000_000_000, 5, 0n, DEFAULT_SALT, [[ESCROW, '0x12345678']], []]] }).slice(0, 10));
   });
 
   it('SessionKeyStore: key stored with requireAuth, signer only after sessionId, expiry deletes key', async () => {
