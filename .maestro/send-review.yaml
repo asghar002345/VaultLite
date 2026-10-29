@@ -1,6 +1,8 @@
 # Maestro E2E: Send → review screen on Ethereum Sepolia. TESTNET ONLY, NO REAL FUNDS.
 # Stops at review and taps Cancel: it never holds "Hold to send", so nothing is signed or broadcast.
-# The test wallet is unfunded, so the send button is expected to stay disabled anyway.
+# The public test wallet is UNFUNDED on Sepolia (balance 0), so the send screen correctly shows
+# "Exceeds balance" and keeps Review disabled. In that case the flow asserts exactly that and stops;
+# only if someone funds the address does it continue to the review screen.
 appId: com.vaultlite.demo
 name: Send review (no broadcast)
 tags: [send, smoke]
@@ -23,19 +25,43 @@ env:
 - tapOn:
     id: "amount"
 - inputText: ${AMOUNT}
-- hideKeyboard
-- tapOn:
-    id: "send-review"
+# No hideKeyboard: the amount field suppresses the soft keyboard (custom keypad), and on Android
+# hideKeyboard can fall back to a Back press that leaves the Send screen.
+# Wait for the balance to load (caption leaves "loading…") so the Review state is final.
 - extendedWaitUntil:
-    visible:
-      id: "review-amount"
+    notVisible: "Available: loading…"
     timeout: 20000
-- assertVisible:
-    id: "send-review"          # normal (non-danger) review for an EOA recipient
-- assertNotVisible:
-    id: "danger-block"
-- assertVisible: "Ethereum Sepolia"
-- assertVisible: "Hold to send"
-- tapOn: "Cancel"
-- assertVisible:
-    id: "send"
+# Unfunded (expected): Review must be disabled and the over-balance error shown.
+- runFlow:
+    when:
+      visible: "Exceeds balance"
+    commands:
+      - assertVisible:
+          id: "send-review"
+          enabled: false
+      - tapOn:
+          id: "send-review"   # no-op on a disabled button
+      - assertVisible:
+          id: "send"
+      - assertNotVisible:
+          id: "review-amount"
+# Funded: open the review screen, check it, then Cancel without holding "Hold to send".
+- runFlow:
+    when:
+      notVisible: "Exceeds balance"
+    commands:
+      - tapOn:
+          id: "send-review"
+      - extendedWaitUntil:
+          visible:
+            id: "review-amount"
+          timeout: 20000
+      - assertVisible:
+          id: "send-review"          # normal (non-danger) review for an EOA recipient
+      - assertNotVisible:
+          id: "danger-block"
+      - assertVisible: "Ethereum Sepolia"
+      - assertVisible: "Hold to send"
+      - tapOn: "Cancel"
+      - assertVisible:
+          id: "send"
