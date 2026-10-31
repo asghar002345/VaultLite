@@ -70,3 +70,24 @@ test('OPTIONS -> 204 with CORS', async () => {
   const r = await handle(new Request('http://x/api/bundler/84532', { method: 'OPTIONS' }), '84532', env, mockFetch({}));
   assert.equal(r.status, 204); assert.equal(r.headers.get('access-control-allow-methods'), 'POST, OPTIONS');
 });
+for (const m of ['pm_getPaymasterStubData', 'pm_getPaymasterData']) {
+  for (const policy of [undefined, '']) {
+    test(`${m} without policy (${JSON.stringify(policy)}) -> 403 sponsorship_disabled, no upstream call`, async () => {
+      const f = mockFetch({});
+      const r = await handle(req(rpc(m, [{ sender: '0x1' }, ENTRY_POINT, '0x14a34', { sponsorshipPolicyId: 'sp_client' }])), '84532', { PIMLICO_API_KEY: KEY, PIMLICO_SPONSORSHIP_POLICY_ID: policy }, f);
+      assert.equal(r.status, 403); const t = await r.text(); assert.ok(!t.includes(KEY));
+      const j = JSON.parse(t); assert.equal(j.error.code, -32001); assert.equal(j.error.message, 'sponsorship_disabled'); assert.equal(j.id, 7);
+      assert.equal(f.calls.length, 0);
+    });
+  }
+  test(`${m} with policy is forwarded`, async () => {
+    const f = mockFetch({ jsonrpc: '2.0', id: 7, result: { paymaster: '0xabc' } });
+    const r = await handle(req(rpc(m, [{ sender: '0x1' }, ENTRY_POINT, '0x14a34'])), '84532', env, f);
+    assert.equal(r.status, 200); assert.equal(f.calls.length, 1);
+  });
+}
+test('non-pm methods unaffected when policy unset', async () => {
+  const f = mockFetch({ jsonrpc: '2.0', id: 7, result: '0x1' });
+  const r = await handle(req(rpc('eth_estimateUserOperationGas', [{ sender: '0x1' }, ENTRY_POINT])), '84532', { PIMLICO_API_KEY: KEY }, f);
+  assert.equal(r.status, 200);
+});
