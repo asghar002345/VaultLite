@@ -65,7 +65,7 @@ export async function handle(req, chainId, env = process.env, fetchImpl = fetch)
     if (!op || typeof op.sender !== 'string') return rpcError(id, 400, -32600, 'invalid_request', { reason: 'missing sender' });
     if (SPONSOR.includes(method)) {
       if (!env.PIMLICO_SPONSORSHIP_POLICY_ID)
-        return rpcError(id, 403, -32001, 'sponsorship_disabled', { reason: 'no sponsorship policy configured; send self-paid' });
+        return rpcError(id, 403, -32002, 'not_sponsorable', { reason: 'no sponsorship policy configured; send self-paid' });
       // Server picks the policy; client-supplied context is ignored (ERC-7677: [op, ep, chainIdHex, ctx]).
       const ctx = { sponsorshipPolicyId: env.PIMLICO_SPONSORSHIP_POLICY_ID };
       forward = [op, ep, params[2] ?? '0x14a34', ctx];

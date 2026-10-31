@@ -87,6 +87,7 @@ Always HTTP status + JSON-RPC envelope so viem/permissionless surface it:
 | 400 | -32600 | `invalid_request` (bad JSON, batch, >64 KB) / `entrypoint_not_allowed` |
 | 403 | -32001 | `method_not_allowed` |
 | 403 | -32002 | `not_sponsorable` (`data.reason` says which rule) |
+| 403 | -32002 | `not_sponsorable` for `pm_getPaymasterStubData` / `pm_getPaymasterData` when `PIMLICO_SPONSORSHIP_POLICY_ID` is unset (`data.reason`: `no sponsorship policy configured; send self-paid`); request is not forwarded. App default `onNotSponsorable: 'self-pay'` rebuilds the op self-paid. |
 | 404 | -32003 | `chain_not_allowed` |
 | 429 | -32005 | `rate_limited` (`data.retryAfter` seconds) |
 | 502 | -32603 | `upstream_error` |
