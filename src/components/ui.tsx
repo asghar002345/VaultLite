@@ -1,93 +1,179 @@
-import * as Haptics from 'expo-haptics';
-import type { ReactNode } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextProps, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { useBreakpoint, useTabInset } from '@/components/layout';
+import { Fonts, FontSize, Layout, MaxScale, Radius, Spacing, Tabular, TextRoles, Weight } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { Icon, type IconName } from '@/components/icon';
+import { haptic, Springs, useMotion } from '@/motion';
+import { singleFlight } from '@/lib/loading';
 
-export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
+export function Screen({
+  children,
+  scroll = true,
+  backdrop,
+  tab,
+  wide,
+  testID,
+  refreshControl,
+}: {
+  children: ReactNode;
+  /** Pull-to-refresh (see useRefreshControl). Scroll screens only. */
+  refreshControl?: ReactElement;
+  scroll?: boolean;
+  backdrop?: ReactNode;
+  /** Tab root: pads the bottom so content clears the floating tab bar. */
+  tab?: boolean;
+  /** Allow the wider content column (lists/dashboards). */
+  wide?: boolean;
+  testID?: string;
+}) {
   const t = useTheme();
-  const body = <View style={styles.inner}>{children}</View>;
+  const tabInset = useTabInset();
+  const { compact } = useBreakpoint();
+  const body = (
+    <View
+      testID={testID}
+      style={[
+        styles.inner,
+        { maxWidth: wide ? Layout.maxContentWide : Layout.maxContent, padding: compact ? Spacing.md : Layout.margin, paddingTop: Spacing.lg },
+        tab && { paddingBottom: tabInset },
+      ]}>
+      {children}
+    </View>
+  );
   return (
-    <SafeAreaView style={[styles.flex, { backgroundColor: t.background }]}>
-      {scroll ? <ScrollView contentContainerStyle={styles.grow}>{body}</ScrollView> : body}
+    <SafeAreaView style={[styles.flex, { backgroundColor: t.background }]} edges={tab ? ['top', 'left', 'right'] : ['left', 'right', 'bottom']}>
+      {backdrop}
+      {scroll ? <ScrollView contentContainerStyle={styles.grow} keyboardShouldPersistTaps="handled" refreshControl={refreshControl as never}>{body}</ScrollView> : body}
     </SafeAreaView>
   );
 }
 
-export function T({
-  variant = 'body',
-  style,
-  ...p
-}: TextProps & { variant?: 'body' | 'title' | 'hero' | 'caption' | 'mono' | 'error' }) {
+type Variant = 'body' | 'title' | 'hero' | 'headline' | 'overline' | 'caption' | 'label' | 'mono' | 'error' | 'amount' | 'largeTitle' | 'footnote' | 'number';
+/** Text with semantic roles (see TextRoles). Serif only for title/largeTitle; numbers use system tabular figures. */
+export function T({ variant = 'body', style, ...p }: TextProps & { variant?: Variant }) {
   const t = useTheme();
   const v = {
-    body: { fontSize: FontSize.body, color: t.text },
-    title: { fontSize: FontSize.title, fontWeight: '700' as const, color: t.text },
-    hero: { fontSize: FontSize.hero, fontWeight: '800' as const, color: t.text },
-    caption: { fontSize: FontSize.caption, color: t.textSecondary },
-    mono: { fontSize: 14, fontFamily: Fonts.mono, color: t.text },
-    error: { fontSize: FontSize.body, color: t.danger },
+    body: { ...TextRoles.body, color: t.text },
+    label: { ...TextRoles.callout, color: t.text },
+    headline: { fontSize: FontSize.headline, lineHeight: 26, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, color: t.text },
+    largeTitle: { ...TextRoles.largeTitle, color: t.text },
+    title: { ...TextRoles.title, color: t.text },
+    hero: { ...TextRoles.displayNumber, color: t.text },
+    number: { ...TextRoles.numeric, color: t.text },
+    overline: { fontSize: 12, lineHeight: 16, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, color: t.textSecondary, letterSpacing: 0.96, textTransform: 'uppercase' as const },
+    caption: { ...TextRoles.footnote, color: t.textSecondary },
+    footnote: { ...TextRoles.caption, color: t.textSecondary },
+    mono: { fontSize: FontSize.mono, lineHeight: 18, fontFamily: Fonts.mono, color: t.text },
+    error: { ...TextRoles.footnote, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, color: t.danger },
+    amount: { ...TextRoles.numeric, color: t.text, ...Tabular },
   }[variant];
-  return <Text {...p} style={[v, style]} />;
+  const cap = variant === 'hero' || variant === 'largeTitle' ? MaxScale.display : p.maxFontSizeMultiplier;
+  return <Text {...p} maxFontSizeMultiplier={cap} style={[v, style]} />;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-/** Spring press-scale + light haptic. Shared by Button and Chip. */
+/** Spring press-scale (UI thread). Reduced motion: no scale. */
 export function usePressScale(to = 0.96) {
+  const { reduced } = useMotion();
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
   return {
     style,
     onPressIn: () => {
-      scale.set(withSpring(to, { damping: 15, stiffness: 400 }));
+      if (!reduced) scale.set(withSpring(to, Springs.snappy));
     },
     onPressOut: () => {
-      scale.set(withSpring(1, { damping: 12, stiffness: 300 }));
+      scale.set(withSpring(1, Springs.snappy));
     },
   };
 }
 
+/** Inline spinner. Reduced motion: a static clock glyph instead of a rotating indicator. */
+export function Spinner({ color, size = 'small', testID = 'spinner' }: { color?: string; size?: 'small' | 'large'; testID?: string }) {
+  const t = useTheme();
+  const { reduced } = useMotion();
+  const c = color ?? t.textSecondary;
+  if (reduced)
+    return (
+      <View testID={testID} accessibilityRole="progressbar" accessibilityLabel="Loading">
+        <Icon name="pending" size={size === 'large' ? 'lg' : 'sm'} tint={c} />
+      </View>
+    );
+  return <ActivityIndicator testID={testID} size={size} color={c} accessibilityLabel="Loading" />;
+}
+
+/**
+ * Button. `loading`: inline spinner replaces the icon, the button is disabled and announces busy.
+ * Async onPress is single-flight: further taps are ignored until its promise settles (no double submits),
+ * and the spinner shows for that time even if the caller doesn't pass `loading`.
+ */
 export function Button({
   title,
   onPress,
   variant = 'primary',
   disabled,
+  loading,
   testID,
   accessibilityLabel,
   accessibilityHint,
+  icon,
 }: {
   title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  onPress: () => unknown;
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   disabled?: boolean;
+  loading?: boolean;
   testID?: string;
   accessibilityLabel?: string;
   accessibilityHint?: string;
+  icon?: IconName;
 }) {
   const t = useTheme();
   const press = usePressScale();
-  const bg = variant === 'primary' ? t.primary : variant === 'danger' ? t.danger : t.surface;
-  const fg = variant === 'secondary' ? t.text : t.onPrimary;
+  const [flight] = useState(() => singleFlight((fn: () => unknown) => fn()));
+  const [pending, setPending] = useState(false);
+  const busy = !!loading || pending;
+  const off = !!disabled || busy;
+  const bg = { primary: t.primary, danger: t.danger, secondary: t.surfaceRaised, ghost: 'transparent' }[variant];
+  const fg = variant === 'secondary' || variant === 'ghost' ? t.text : variant === 'danger' ? t.onDanger : t.onPrimary;
+  const label = variant === 'ghost' ? t.textSecondary : fg;
   return (
     <AnimatedPressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: off, busy }}
+      disabled={off}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       onPress={() => {
-        void Haptics.impactAsync(variant === 'danger' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
-        onPress();
+        if (off || flight.busy()) return;
+        if (variant === 'danger') haptic.medium();
+        else haptic.light();
+        const r = flight(onPress);
+        if (r) {
+          setPending(true);
+          r.catch(() => {}).finally(() => setPending(false));
+        }
       }}
-      style={[styles.btn, { backgroundColor: bg, opacity: disabled ? 0.4 : 1 }, press.style]}>
-      <Text style={{ color: fg, fontWeight: '600', fontSize: FontSize.body }}>{title}</Text>
+      style={[
+        styles.btn,
+        // Busy keeps full colour (it's progress, not unavailability); only plain disabled dims.
+        { backgroundColor: bg, opacity: disabled && !busy ? 0.38 : busy ? 0.85 : 1 },
+        variant === 'secondary' && { borderWidth: 1, borderColor: t.border },
+        variant === 'ghost' && { minHeight: 44 },
+        press.style,
+      ]}>
+      <View style={styles.btnRow}>
+        {busy ? <Spinner color={label} testID={testID ? `${testID}-spinner` : 'button-spinner'} /> : icon ? <Icon name={icon} size="md" tint={fg} /> : null}
+        <Text style={{ color: label, fontFamily: Fonts.uiMedium, fontWeight: Weight.medium, fontSize: FontSize.body }}>{title}</Text>
+      </View>
     </AnimatedPressable>
   );
 }
@@ -97,27 +183,30 @@ export function Input(p: TextInputProps) {
   return (
     <TextInput
       accessibilityLabel={p.accessibilityLabel ?? p.placeholder}
-      placeholderTextColor={t.textSecondary}
+      placeholderTextColor={t.textTertiary}
       autoCapitalize="none"
       autoCorrect={false}
       {...p}
-      style={[styles.input, { color: t.text, borderColor: t.border, backgroundColor: t.surface }, p.style]}
+      style={[styles.input, { color: t.text, borderColor: t.border, backgroundColor: t.surface, fontFamily: Fonts.ui }, p.style]}
     />
   );
 }
 
-export function Card({ children }: { children: ReactNode }) {
+export function Card({ children, style, raised }: { children: ReactNode; style?: ViewStyle; raised?: boolean }) {
   const t = useTheme();
-  return <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>{children}</View>;
+  return <View style={[styles.card, { backgroundColor: raised ? t.surfaceRaised : t.surface, borderColor: t.border }, style]}>{children}</View>;
 }
 
 export function TestnetBanner() {
   const t = useTheme();
   return (
-    <View testID="testnet-banner" accessibilityRole="header" accessibilityLabel="Warning: testnet only. Tokens have no real value." style={[styles.banner, { backgroundColor: t.warning }]}>
-      <Text style={{ color: t.onWarning, fontWeight: '700', textAlign: 'center' }}>
-        TESTNET ONLY — tokens have no real value
-      </Text>
+    <View
+      testID="testnet-banner"
+      accessibilityRole="header"
+      accessibilityLabel="Warning: testnet only. Tokens have no real value."
+      style={[styles.banner, { borderColor: t.border, backgroundColor: t.surface }]}>
+      <View style={[styles.dot, { backgroundColor: t.primary }]} />
+      <Text style={{ color: t.textSecondary, fontFamily: Fonts.uiMedium, fontSize: 12, letterSpacing: 0.96 }}>TESTNET</Text>
     </View>
   );
 }
@@ -125,9 +214,11 @@ export function TestnetBanner() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   grow: { flexGrow: 1 },
-  inner: { flex: 1, padding: Spacing.lg, gap: Spacing.md },
-  btn: { paddingVertical: 14, borderRadius: Radius.md, alignItems: 'center' },
-  input: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.body },
-  card: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
-  banner: { padding: Spacing.sm, borderRadius: Radius.sm },
+  inner: { flex: 1, gap: Spacing.lg, width: '100%', alignSelf: 'center' },
+  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  btn: { minHeight: 56, justifyContent: 'center', paddingHorizontal: Spacing.lg, borderRadius: Radius.pill, alignItems: 'center' },
+  input: { borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.md, minHeight: 56, fontSize: FontSize.body },
+  card: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.smd },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, paddingHorizontal: 10, borderRadius: Radius.pill, borderWidth: 1, alignSelf: 'flex-start' },
+  dot: { width: 6, height: 6, borderRadius: 3 },
 });

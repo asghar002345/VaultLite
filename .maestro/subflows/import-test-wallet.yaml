@@ -1,0 +1,73 @@
+# Shared setup: clean install state → import the PUBLIC BIP-39 test mnemonic → set ${PIN} → Home.
+# Biometrics are switched OFF so no system prompt appears (expo-secure-store prompts when the
+# biometric key is written with requireAuthentication). Never put a real seed here.
+appId: com.vaultlite.demo
+env:
+  MNEMONIC: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
+---
+- runFlow: require-pin.yaml
+- runFlow: assert-device-unlocked.yaml
+- clearState
+- launchApp
+- runFlow: assert-device-unlocked.yaml
+- extendedWaitUntil:
+    visible:
+      id: "import"
+    timeout: 20000
+- tapOn:
+    id: "import"
+- tapOn:
+    id: "import-secret"
+- inputText: ${MNEMONIC}
+- hideKeyboard
+# The IME closing re-lays out the screen and moves Continue; a tap during that animation can miss
+# (seen on the first flow of a run on a real Pixel). Wait for it to settle and for Continue to be enabled.
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "import-continue"
+      enabled: true
+    timeout: 10000
+- tapOn:
+    id: "import-continue"
+- assertNotVisible: "Invalid recovery phrase.*"   # input mangled → fail with a clear reason
+# Retry the tap once if we are still on the Import screen (missed tap), then wait for Security.
+- runFlow:
+    when:
+      visible:
+        id: "import-continue"
+    commands:
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - tapOn:
+          id: "import-continue"
+          optional: true
+- extendedWaitUntil:
+    visible: "Secure your wallet"
+    timeout: 20000
+- tapOn:
+    id: "pin"
+- inputText: ${PIN}
+- tapOn:
+    id: "pin-confirm"
+- inputText: ${PIN}
+- hideKeyboard
+# Biometric switch defaults ON when the device supports it: turn it off for deterministic runs.
+- runFlow:
+    when:
+      visible:
+        id: "bio-switch"
+        checked: true
+    commands:
+      - tapOn:
+          id: "bio-switch"
+- tapOn:
+    id: "create-vault"
+- runFlow: dismiss-biometric-prompt.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home"
+    timeout: 45000   # scrypt KDF can take several seconds
+- assertVisible:
+    id: "testnet-banner"

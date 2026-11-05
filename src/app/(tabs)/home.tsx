@@ -1,112 +1,199 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { router } from 'expo-router';
+import { useMemo } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, T, TestnetBanner } from '@/components/ui';
-import { Chip, Skeleton } from '@/components/wallet';
-import { CHAINS, type ChainKey } from '@/config/chains';
-import { isReownConfigured } from '@/config/env';
-import { Spacing } from '@/constants/theme';
+import { Monogram } from '@/components/brand';
+import { AnimatedNumber } from '@/components/fx/animated-number';
+import { Guilloche } from '@/components/fx/guilloche';
+import { Icon, type IconName } from '@/components/icon';
+import { useBreakpoint, useTabInset } from '@/components/layout';
+import { EmptyState, ErrorState, LoadingState, Section } from '@/components/states';
+import { previewRows, TokenRow } from '@/components/token-row';
 import { TxRow } from '@/components/tx-row';
+import { T, TestnetBanner, usePressScale } from '@/components/ui';
+import { RefreshHint, useRefreshControl } from '@/components/loading';
+import { Skeleton } from '@/components/wallet';
+import { loadPhase } from '@/lib/loading';
+import { Fonts, Layout, Radius, Spacing, Tabular, TextRoles } from '@/constants/theme';
 import { useBalances } from '@/hooks/use-balances';
-import { humanizeError } from '@/lib/errors';
-import { useHistory } from '@/store/history';
 import { useTheme } from '@/hooks/use-theme';
-import { formatAmount } from '@/lib/format';
-import { stableTotal } from '@/lib/amount';
+import { stableTotalUsdt } from '@/lib/amount';
+import { MarketRow, REFERENCE_LABEL } from '@/components/market';
+import { useAssetQuotes } from '@/hooks/use-asset-quotes';
+import { useTickers } from '@/hooks/use-market';
+import { toggleFav, useFavorites } from '@/store/favorites';
+import { haptic } from '@/motion';
+import { useHistory } from '@/store/history';
+import { useSettings } from '@/store/settings';
 import { useSession } from '@/vault/session';
+import Animated from 'react-native-reanimated';
 
-type Filter = 'all' | ChainKey;
-const FILTERS: Filter[] = ['all', 'sepolia', 'polygonAmoy', 'bscTestnet', 'baseSepolia', 'tronNile', 'solanaDevnet'];
+const ACTIONS: { key: string; label: string; icon: IconName; href: '/send' | '/receive' | '/escrow' }[] = [
+  { key: 'send', label: 'Send', icon: 'send', href: '/send' },
+  { key: 'receive', label: 'Receive', icon: 'receive', href: '/receive' },
+  { key: 'escrow', label: 'Escrow', icon: 'escrow', href: '/escrow' },
+];
+
+function QuickAction({ a }: { a: (typeof ACTIONS)[number] }) {
+  const t = useTheme();
+  const press = usePressScale(0.97);
+  return (
+    <Animated.View style={[s.flex, press.style]}>
+      <Pressable
+        testID={`qa-${a.key}`}
+        accessibilityRole="button"
+        accessibilityLabel={a.label}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        onPress={() => {
+          haptic.light();
+          router.push(a.href);
+        }}
+        style={[s.qa, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <View style={[s.qaIcon, { backgroundColor: t.surfaceRaised }]}>
+          <Icon name={a.icon} tint={t.primary} />
+        </View>
+        <T variant="overline" style={{ color: t.textSecondary }}>{a.label}</T>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 export default function Home() {
   const t = useTheme();
-  const { accounts, lock } = useSession();
+  const { accounts } = useSession();
   const q = useBalances();
   const history = useHistory(accounts ? { evm: accounts.evm.address, tron: accounts.tron.address } : undefined);
   const qc = useQueryClient();
-  const [filter, setFilter] = useState<Filter>('all');
-  const rows = useMemo(() => (q.data ?? []).filter((x) => filter === 'all' || x.chain === filter), [q.data, filter]);
+  const { hiddenChains } = useSettings();
+  const bp = useBreakpoint();
+  const tabInset = useTabInset();
+  const visible = useMemo(() => (q.data ?? []).filter((x) => !hiddenChains.includes(x.chain)), [q.data, hiddenChains]);
+  const preview = useMemo(() => previewRows(visible, 4), [visible]);
+  const { quotes, usdc } = useAssetQuotes(preview);
+  const favorites = useFavorites();
+  const homeMarkets = (favorites.length ? favorites : ['BTCUSDT', 'ETHUSDT']).slice(0, 3);
+  const mk = useTickers(homeMarkets);
+  // Pull-to-refresh spins only for the user's pull; polling/focus refetches show the quiet RefreshHint instead.
+  const pull = useRefreshControl(() =>
+    Promise.all([
+      qc.refetchQueries({ queryKey: ['balances'], type: 'active' }),
+      qc.refetchQueries({ queryKey: ['history'], type: 'active' }),
+      qc.refetchQueries({ queryKey: ['market', 'rest'], type: 'active' }),
+    ]),
+  );
+  const phase = loadPhase(q);
   if (!accounts) return null;
+  const usdcRate = usdc.ticker && usdc.freshness !== 'stale' ? Number(usdc.ticker.last) : null;
+  const totalR = stableTotalUsdt(visible, usdcRate);
+  const total = totalR.value;
+  const pad = bp.compact ? Spacing.md : Layout.margin;
 
   return (
-    <SafeAreaView style={[s.flex, { backgroundColor: t.background }]}>
-      <FlatList
-        data={q.isPending ? [] : rows}
-        keyExtractor={(x) => `${x.chain}:${x.address}`}
-        contentContainerStyle={s.pad}
-        refreshControl={
-          <RefreshControl refreshing={q.isRefetching} onRefresh={() => {
-              qc.invalidateQueries({ queryKey: ['balances'] });
-              qc.invalidateQueries({ queryKey: ['history'] });
-            }} />
-        }
-        ListHeaderComponent={
-          <View style={{ gap: Spacing.md }}>
+    <SafeAreaView style={[s.flex, { backgroundColor: t.background }]} edges={['top', 'left', 'right']}>
+      <ScrollView
+        testID="home"
+        contentContainerStyle={[s.pad, { paddingHorizontal: pad, paddingBottom: tabInset, maxWidth: Layout.maxContent, width: '100%', alignSelf: 'center' }]}
+        refreshControl={pull.control}>
+        <View style={s.topRow}>
+          <View style={s.brand}>
+            <Monogram size={32} />
+            <T style={{ fontFamily: Fonts.display, fontSize: 24, lineHeight: 28, color: t.text }}>VaultLite</T>
             <TestnetBanner />
-            <T variant="caption">Total (test stablecoins at $1; native tokens unpriced)</T>
-            <T variant="hero" testID="total" accessibilityLabel={`Total ${stableTotal(q.data ?? []).toFixed(2)} test dollars`}>${stableTotal(q.data ?? []).toFixed(2)}</T>
-            <View style={s.row}>
-              <View style={s.flex}><Button title="Send" onPress={() => router.push('/send')} /></View>
-              <View style={s.flex}><Button variant="secondary" title="Receive" onPress={() => router.push('/receive')} /></View>
+          </View>
+          <Pressable testID="home-scan" accessibilityRole="button" accessibilityLabel="Scan QR code" hitSlop={12} onPress={() => router.push({ pathname: '/scan', params: { mode: 'any' } })} style={[s.iconBtn, { borderColor: t.border }]}>
+            <Icon name="scan" size="sm" color="textSecondary" />
+          </Pressable>
+        </View>
+
+        <View style={[s.hero, { borderColor: t.border, backgroundColor: t.surface }]}>
+          <Guilloche />
+          <T variant="overline">Test stablecoins · in USDT</T>
+          {phase === 'skeleton' ? (
+            <View testID="total-loading" style={{ width: 200 }}>
+              <Skeleton raised height={56} />
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>
-              {FILTERS.map((f) => (
-                <Chip key={f} label={f === 'all' ? 'All' : CHAINS[f].name.replace(' Testnet', '')} active={filter === f} onPress={() => setFilter(f)} />
+          ) : total === null ? (
+            <T testID="total" variant="hero" accessibilityLabel="Total unavailable: USDC to USDT rate unavailable">—</T>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm }}>
+              <AnimatedNumber testID="total" accessibilityLabel={`Total ${total.toFixed(2)} USDT in test stablecoins`} value={total} style={[TextRoles.displayNumber, { color: t.text }, Tabular]} />
+              <T variant="label" style={{ color: t.textSecondary }}>USDT</T>
+            </View>
+          )}
+          <T variant="footnote" testID="total-basis">
+            {phase === 'skeleton' ? 'Loading balances…' : total === null ? 'USDC/USDT rate unavailable — not estimated' : totalR.usesRate ? `USDC at Binance USDC/USDT ${usdc.ticker ? Number(usdc.ticker.last).toFixed(4) : ''} · mainnet reference` : 'Testnet tokens have no market value'}
+          </T>
+          <T variant="mono" style={{ color: t.textTertiary }}>
+            {accounts.evm.address.slice(0, 6)}…{accounts.evm.address.slice(-4)}
+          </T>
+        </View>
+
+        <View style={s.row}>
+          {ACTIONS.map((a) => (
+            <QuickAction key={a.key} a={a} />
+          ))}
+        </View>
+
+        {history.pending.length > 0 && (
+          <Section title="Pending">
+            <View testID="pending-list" style={{ gap: Spacing.sm }}>
+              {history.pending.map((tx) => (
+                <TxRow key={tx.hash} tx={tx} />
               ))}
-            </ScrollView>
-            {history.pending.length > 0 && (
-              <View testID="pending-list">
-                <T variant="caption">Pending</T>
-                {history.pending.map((tx) => <TxRow key={tx.hash} tx={tx} />)}
-              </View>
-            )}
-            {q.isPending && [0, 1, 2, 3].map((i) => <Skeleton key={i} />)}
-            {q.isError && <T variant="error">Couldn&apos;t load balances: {humanizeError(q.error)}</T>}
-          </View>
-        }
-        renderItem={({ item, index }) => (
-          <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).springify()}>
-          <Link href={{ pathname: '/token/[chain]/[address]', params: { chain: item.chain, address: item.address } }} asChild>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${item.symbol} on ${CHAINS[item.chain].name}: ${item.balance === null ? 'balance unavailable' : formatAmount(item.balance, item.decimals, 4)}`}
-              accessibilityHint="Opens token details"
-              style={[s.item, { borderColor: t.border }]}>
-              <View style={s.flex}>
-                <T style={{ fontWeight: '600' }}>{item.symbol}</T>
-                <T variant="caption">{CHAINS[item.chain].name}</T>
-              </View>
-              {item.balance === null ? (
-                <T variant="caption">{item.error ? humanizeError(item.error).split('.')[0] : 'RPC error'}</T>
-              ) : (
-                <T>{formatAmount(item.balance, item.decimals, 4)}</T>
-              )}
-            </Pressable>
-          </Link>
-          </Animated.View>
+            </View>
+          </Section>
         )}
-        ListFooterComponent={
-          <View style={{ gap: Spacing.md, marginTop: Spacing.lg }}>
-            <Button variant="secondary" title="Milestone escrow" testID="home-escrow" onPress={() => router.push('/escrow')} />
-            <Button variant="secondary" title="Add custom token" onPress={() => router.push('/tokens/add')} />
-            <Button variant="secondary" title={`Activity${history.list.length ? ` (${history.list.length})` : ''}`} onPress={() => router.push('/activity')} />
-            <Button variant="secondary" title="WalletConnect sessions" disabled={!isReownConfigured()} onPress={() => router.push('/walletconnect')} />
-            {!isReownConfigured() && <T variant="caption">WalletConnect disabled: set EXPO_PUBLIC_REOWN_PROJECT_ID (see .env.example).</T>}
-            <Button variant="secondary" title="Lock now" onPress={lock} />
+
+        <Section
+          title="Assets"
+          right={
+            <Pressable testID="view-all" accessibilityRole="link" hitSlop={10} onPress={() => router.push('/tokens')}>
+              <T variant="overline" style={{ color: t.primary }}>View all{q.data ? ` (${visible.length})` : ''}</T>
+            </Pressable>
+          }>
+          <RefreshHint active={phase === 'refreshing' && !pull.refreshing} label="Updating balances…" testID="home-refresh-hint" />
+          {phase === 'skeleton' && <LoadingState rows={4} height={72} label="Loading balances" />}
+          {phase === 'error' && <ErrorState title="Couldn't load balances" error={q.error} onRetry={() => q.refetch()} />}
+          {q.isSuccess && preview.length === 0 && (
+            <EmptyState icon="wallet" title="No networks shown" body="All networks are hidden. Show them again in Settings → Networks." action={{ label: 'Networks', onPress: () => router.push('/settings/networks') }} />
+          )}
+          <View style={{ gap: Spacing.sm }}>
+            {preview.map((item, i) => (
+              <TokenRow key={`${item.chain}:${item.address}`} item={item} index={i} quote={quotes[`${item.chain}:${item.address}`]} />
+            ))}
           </View>
-        }
-      />
+        </Section>
+
+        <Section
+          title="Markets"
+          right={
+            <Pressable testID="markets-all" accessibilityRole="link" accessibilityLabel="See all markets" hitSlop={12} onPress={() => router.push('/markets')}>
+              <T variant="overline" style={{ color: t.primary }}>See all</T>
+            </Pressable>
+          }>
+          <T variant="footnote">{REFERENCE_LABEL} · not your balances</T>
+          <View testID="home-markets" style={{ gap: Spacing.sm }}>
+            {homeMarkets.map((sym) => (
+              <MarketRow key={sym} q={mk.quote({ kind: 'pair', symbol: sym })} fav={favorites.includes(sym)} onToggleFav={() => toggleFav(sym)} onPress={() => router.push({ pathname: '/markets/[symbol]', params: { symbol: sym } })} />
+            ))}
+          </View>
+        </Section>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
   flex: { flex: 1 },
-  pad: { padding: Spacing.lg, gap: Spacing.sm },
-  row: { flexDirection: 'row', gap: Spacing.sm },
-  item: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
+  pad: { paddingTop: Spacing.md, gap: Spacing.xl },
+  row: { flexDirection: 'row', gap: Spacing.smd },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: Spacing.smd },
+  iconBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  hero: { borderRadius: Radius.lg, borderWidth: 1, padding: Spacing.lg, gap: Spacing.sm, overflow: 'hidden', minHeight: 176, justifyContent: 'center' },
+  qa: { borderRadius: Radius.lg, borderWidth: 1, paddingVertical: Spacing.lg, alignItems: 'center', gap: Spacing.smd },
+  qaIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 });

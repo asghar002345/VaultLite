@@ -1,0 +1,15 @@
+# From a locked app (biometric prompt possibly showing): cancel the prompt, type ${PIN}, wait for Home.
+appId: com.vaultlite.demo
+---
+- runFlow: require-pin.yaml
+- runFlow: dismiss-biometric-prompt.yaml
+- extendedWaitUntil:
+    visible:
+      id: "lock"
+    timeout: 20000
+- runFlow: enter-pin-keypad.yaml
+- runFlow: dismiss-biometric-prompt.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home"
+    timeout: 45000

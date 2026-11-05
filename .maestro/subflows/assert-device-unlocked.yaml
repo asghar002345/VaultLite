@@ -1,0 +1,13 @@
+# Fail fast with a clear reason if the phone is on the Android keyguard (lock screen). Maestro cannot
+# unlock a secure keyguard, and `svc power stayon true` keeps the screen ON but does not unlock it.
+# Unlock the phone (and ideally set Screen lock to None / Swipe on the test device) before running.
+appId: com.vaultlite.demo
+---
+- runFlow:
+    when:
+      visible:
+        id: "com.android.systemui:id/keyguard_indication_area|com.android.systemui:id/keyguard_header"
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: "Device is on the Android lock screen. Unlock the phone before running the flows."

@@ -1,0 +1,15 @@
+# Tap a range pill, wait for the overlay to clear, and check the summary label switched.
+appId: com.vaultlite.demo
+---
+- tapOn:
+    text: ${RANGE}
+- extendedWaitUntil:
+    notVisible:
+      id: "chart-loading"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "${RANGE} range"
+    timeout: 20000
+- assertVisible:
+    id: "kline-chart"

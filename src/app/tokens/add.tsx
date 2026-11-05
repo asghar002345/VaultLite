@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView } from 'react-native';
 
+import { Notice } from '@/components/states';
 import { Button, Card, Input, Screen, T, TestnetBanner } from '@/components/ui';
 import { Chip } from '@/components/wallet';
 import { CHAIN_LIST, CHAINS, type ChainKey } from '@/config/chains';
@@ -43,7 +44,7 @@ export default function AddToken() {
     <Screen>
       <TestnetBanner />
       <T variant="caption">Network</T>
-      <ScrollView horizontal contentContainerStyle={{ gap: 8 }} showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8 }} showsHorizontalScrollIndicator={false}>
         {CHAIN_LIST.filter((c) => c.family !== 'solana').map((c) => (
           <Chip key={c.key} label={c.name.replace(' Testnet', '')} active={chain === c.key} onPress={() => { setChain(c.key as ChainKey); setMeta(null); }} />
         ))}
@@ -51,8 +52,8 @@ export default function AddToken() {
       <T variant="caption">Token contract</T>
       <Input value={address} onChangeText={(x) => { setAddress(x); setMeta(null); }} placeholder={family === 'tron' ? 'T…' : '0x…'} />
       {v && !v.ok && <T variant="error">{v.reason}</T>}
-      <Button title={busy ? 'Checking on-chain…' : 'Verify'} disabled={!v?.ok || busy} onPress={verify} />
-      {err && <T variant="error">{err}</T>}
+      <Button title={busy ? 'Checking on-chain…' : 'Verify'} loading={busy} disabled={!v?.ok} onPress={verify} />
+      {err && <Notice tone="danger">{err}</Notice>}
       {meta && v?.ok && (
         <Card>
           <T variant="title">{meta.symbol}</T>

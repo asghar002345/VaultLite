@@ -1,0 +1,6 @@
+# Fails fast unless the runner passed a 6-digit test PIN:  maestro test -e PIN=<6 digits> ...
+appId: com.vaultlite.demo
+---
+- assertTrue:
+    condition: ${typeof PIN !== 'undefined' && String(PIN).length == 6 && !isNaN(Number(PIN))}
+    label: "PIN env var must be passed as -e PIN=<6 digits>"

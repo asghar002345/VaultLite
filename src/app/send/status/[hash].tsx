@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 
+import { Notice } from '@/components/states';
 import { Button, Card, Input, Screen, T } from '@/components/ui';
 import { CHAINS, type ChainKey } from '@/config/chains';
 import { useReauth } from '@/hooks/use-reauth';
@@ -15,7 +16,10 @@ import { canReplace, type TxRecord } from '@/store/history-core';
 import { useHistory } from '@/store/history';
 import { useSession } from '@/vault/session';
 
-const LABEL = { pending: 'Pending…', success: 'Confirmed ✓', failed: 'Failed ✗', replaced: 'Replaced ↺' } as const;
+import { PendingPulse } from '@/components/fx/pulse';
+import { SuccessBurst } from '@/components/fx/skia';
+
+const LABEL = { pending: 'Pending…', success: 'Confirmed', failed: 'Failed', replaced: 'Replaced' } as const;
 
 export default function Status() {
   const { hash, chain } = useLocalSearchParams<{ hash: string; chain: string }>();
@@ -44,6 +48,7 @@ export default function Status() {
 
   return (
     <Screen>
+      {state === 'success' ? <SuccessBurst /> : state === 'pending' ? <PendingPulse /> : null}
       <Card>
         <T variant="title" testID="tx-state">{LABEL[state]}</T>
         {rec && (
@@ -72,14 +77,14 @@ function ReplaceActions({ rec, onDone }: { rec: TxRecord; onDone: (hash: string)
   const { withKeys } = useSession();
   const history = useHistory();
   const auth = useReauth();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | 'speedup' | 'cancel'>(false);
   const [err, setErr] = useState<string | null>(null);
 
   const run = async (mode: 'speedup' | 'cancel') => {
     setErr(null);
+    setBusy(mode);
     const a = await auth.verify();
-    if (a) return setErr(a);
-    setBusy(true);
+    if (a) { setBusy(false); return setErr(a); }
     try {
       const chain = rec.chain as Parameters<typeof marketFee>[0];
       const fees = bumpFees(
@@ -121,9 +126,9 @@ function ReplaceActions({ rec, onDone }: { rec: TxRecord; onDone: (hash: string)
     <Card>
       <T variant="caption">Stuck? Replace it using the same nonce (fees +12.5% or current market, whichever is higher).</T>
       {auth.needsPin && <Input value={auth.pin} onChangeText={auth.setPin} placeholder="PIN" secureTextEntry keyboardType="number-pad" maxLength={6} />}
-      {err && <T variant="error">{err}</T>}
-      <Button title={busy ? 'Working…' : 'Speed up'} disabled={busy || !auth.ready} onPress={() => run('speedup')} />
-      <Button variant="danger" title="Cancel transaction" disabled={busy || !auth.ready} onPress={() => run('cancel')} />
+      {err && <Notice tone="danger">{err}</Notice>}
+      <Button title={busy === 'speedup' ? 'Speeding up…' : 'Speed up'} loading={busy === 'speedup'} disabled={!!busy || !auth.ready} onPress={() => run('speedup')} />
+      <Button variant="danger" title={busy === 'cancel' ? 'Cancelling…' : 'Cancel transaction'} loading={busy === 'cancel'} disabled={!!busy || !auth.ready} onPress={() => run('cancel')} />
     </Card>
   );
 }

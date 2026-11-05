@@ -1,58 +1,21 @@
-# Maestro E2E: onboarding via import → PIN → home → receive → lock → unlock.
-# Run against a dev or preview build:  maestro test .maestro/onboarding-import.yaml
+# Maestro E2E: onboarding via import → PIN → Home → Receive shows the expected address.
 # Uses the public BIP-39 test mnemonic ("abandon … about"); TESTNET ONLY, never fund it.
 appId: com.vaultlite.demo
+name: Onboarding (import)
+tags: [onboarding, smoke]
 env:
   MNEMONIC: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
   PIN: "135790"
   EVM_ADDRESS: "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
 ---
-- clearState
-- launchApp
-- extendedWaitUntil:
-    visible:
-      id: "import"
-    timeout: 15000
-- tapOn:
-    id: "import"
-- assertVisible: "Import wallet"
-- tapOn:
-    id: "import-secret"
-- inputText: ${MNEMONIC}
-- hideKeyboard
-- tapOn:
-    id: "import-continue"
-- assertVisible: "Secure your wallet"
-- tapOn:
-    id: "pin"
-- inputText: ${PIN}
-- tapOn:
-    id: "pin-confirm"
-- inputText: ${PIN}
-- hideKeyboard
-- tapOn:
-    id: "create-vault"
-- extendedWaitUntil:
-    visible:
-      id: "testnet-banner"
-    timeout: 30000   # scrypt KDF can take a few seconds on emulators
+- runFlow: subflows/import-test-wallet.yaml
 - assertVisible:
     id: "total"
-- tapOn: "Receive"
+- tapOn:
+    id: "qa-receive"
 - assertVisible:
     id: "receive-address"
     text: ${EVM_ADDRESS}
 - back
-- scrollUntilVisible:
-    element: "Lock now"
-    direction: DOWN
-- tapOn: "Lock now"
-- tapOn:
-    id: "lock-pin"
-- inputText: ${PIN}
-- tapOn:
-    id: "unlock"
-- extendedWaitUntil:
-    visible:
-      id: "testnet-banner"
-    timeout: 30000
+- assertVisible:
+    id: "home"

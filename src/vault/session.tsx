@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
+import { getSettings, shouldAutoLock } from '@/store/settings';
 import { deriveAccounts, signingKeys, type DerivedAccounts, type WalletSecret } from '@/crypto/derive';
 
 import { biometricsAvailable, confirmBiometric } from './biometrics';
@@ -25,6 +26,12 @@ interface SessionCtx {
   canBiometricReauth: () => Promise<boolean>;
   /** Run `fn` with signing keys derived on demand; keys are not retained. */
   withKeys: <T>(fn: (k: { evm: `0x${string}`; tron: `0x${string}` }) => Promise<T>) => Promise<T>;
+  /** Security settings (all verify the current PIN). */
+  changePin: (currentPin: string, newPin: string) => Promise<void>;
+  setBiometrics: (pin: string, enabled: boolean) => Promise<void>;
+  /** Returns the recovery phrase (or private key) after PIN verification. */
+  revealSecret: (pin: string) => Promise<WalletSecret>;
+  biometricsEnabled: () => Promise<boolean>;
 }
 
 const Ctx = createContext<SessionCtx | null>(null);
@@ -52,12 +59,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setStatus((s) => (s === 'unlocked' ? 'locked' : s));
   }, []);
 
-  // Auto-lock whenever the app leaves the foreground.
+  // Auto-lock: immediately on background (autoLockMs = 0) or, if a grace period is set, when the
+  // app returns after being away at least that long. Onboarding secrets are always dropped.
+  const bgAt = useRef<number | null>(null);
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'background') {
-        lock();
         setPending(null);
+        const ms = getSettings().autoLockMs;
+        if (ms === 0) lock();
+        else bgAt.current = Date.now();
+      } else if (next === 'active') {
+        if (shouldAutoLock(bgAt.current, Date.now(), getSettings().autoLockMs)) lock();
+        bgAt.current = null;
       }
     });
     return () => sub.remove();
@@ -95,6 +109,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (!secretRef.current) throw new Error('Wallet is locked');
         return fn(signingKeys(secretRef.current));
       },
+      changePin: (cur, next) => vault.changePin(cur, next),
+      setBiometrics: async (pin, enabled) => {
+        if (enabled && !(await biometricsAvailable())) throw new Error('Biometrics are not available on this device');
+        await vault.setBiometrics(pin, enabled);
+      },
+      revealSecret: (pin) => vault.revealWithPin(pin),
+      biometricsEnabled: () => vault.biometricsEnabled(),
       reset: async () => {
         await vault.wipe();
         secretRef.current = null;

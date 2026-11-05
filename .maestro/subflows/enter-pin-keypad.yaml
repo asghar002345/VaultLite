@@ -1,0 +1,10 @@
+# Shared: type ${PIN} (6 digits) on the custom lock keypad (testIDs key-0 … key-9).
+appId: com.vaultlite.demo
+---
+- evalScript: ${output.digits = PIN.split('')}
+- repeat:
+    times: 6
+    commands:
+      - evalScript: ${output.d = output.digits.shift()}
+      - tapOn:
+          id: "key-${output.d}"

@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { Notice } from '@/components/states';
 import { Button, Input, Screen, T } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import {
@@ -64,7 +65,7 @@ export default function Import() {
         }}
         style={mode === 'mnemonic' ? styles.area : undefined}
       />
-      {error && <T variant="error">{error}</T>}
+      {error && <Notice tone="danger">{error}</Notice>}
       <Button testID="import-continue" title="Continue" disabled={!value.trim()} onPress={submit} />
     </Screen>
   );

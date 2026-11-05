@@ -1,15 +1,22 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 
-import { Button, Input, Screen, T, TestnetBanner } from '@/components/ui';
+import { Icon } from '@/components/icon';
+import { Keypad } from '@/components/keypad';
+import { Field } from '@/components/states';
+import { Button, Input, Screen, T } from '@/components/ui';
 import { Chip } from '@/components/wallet';
 import { CHAINS } from '@/config/chains';
 import { NATIVE } from '@/config/tokens';
+import { Fonts, Radius, Spacing, Tabular } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useBalances } from '@/hooks/use-balances';
 import { validateAddress } from '@/lib/address';
 import { parseAmount } from '@/lib/amount';
 import { formatAmount } from '@/lib/format';
+import { applyKey } from '@/lib/keypad';
+import { keypadInputProps } from '@/lib/keypad-input';
 import { takeScan } from '@/lib/scan-bus';
 import { findIn, useAllTokens } from '@/store/custom-tokens';
 
@@ -67,33 +74,56 @@ export default function Send() {
   const over = amt !== null && bal !== null && amt > bal;
   const ok = addr?.ok && amt !== null && !over;
 
+  const t = useTheme();
+  const onKey = useCallback((k: string) => setAmount((v) => applyKey(v, k, { decimal: true, maxLength: 24 })), []);
+  const amountError = amount !== '' && amt === null ? 'Invalid amount' : over ? 'Exceeds balance' : null;
+
   return (
-    <Screen>
-      <TestnetBanner />
-      <T variant="caption">Asset</T>
-      <ScrollView horizontal contentContainerStyle={{ gap: 8 }} showsHorizontalScrollIndicator={false}>
-        {TOKENS.map((t) => (
-          <Chip key={`${t.chain}:${t.address}`} label={`${t.symbol} · ${CHAINS[t.chain].name.replace(' Testnet', '')}`} active={tokenKey === `${t.chain}:${t.address}`} onPress={() => setTokenKey(`${t.chain}:${t.address}`)} />
+    <Screen testID="send">
+      <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: Spacing.sm }} showsHorizontalScrollIndicator={false}>
+        {TOKENS.map((x) => (
+          <Chip key={`${x.chain}:${x.address}`} label={`${x.symbol} · ${CHAINS[x.chain].name.replace(' Testnet', '')}`} active={tokenKey === `${x.chain}:${x.address}`} onPress={() => setTokenKey(`${x.chain}:${x.address}`)} />
         ))}
       </ScrollView>
-      <T variant="caption">Recipient ({family === 'tron' ? 'T… base58' : '0x… EIP-55'})</T>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}>
-          <Input testID="to" value={to} onChangeText={setTo} placeholder={family === 'tron' ? 'T…' : '0x…'} />
+      <Field label={`Recipient · ${family === 'tron' ? 'T… base58' : '0x… EIP-55'}`} helper={scanNote ?? undefined} error={addr && !addr.ok ? addr.reason : null}>
+        <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Input testID="to" value={to} onChangeText={setTo} placeholder={family === 'tron' ? 'T…' : '0x…'} autoCapitalize="none" autoCorrect={false} style={{ fontFamily: Fonts.mono, fontSize: 13 }} />
+          </View>
+          <Pressable testID="send-scan" accessibilityRole="button" accessibilityLabel="Scan address QR" onPress={() => router.push({ pathname: '/scan', params: { mode: 'address' } })} style={{ width: 56, height: 56, borderRadius: Radius.md, borderWidth: 1, borderColor: t.border, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="scan" color="textSecondary" />
+          </Pressable>
         </View>
-        <Button variant="secondary" title="Scan" onPress={() => router.push({ pathname: '/scan', params: { mode: 'address' } })} />
+      </Field>
+      <View style={{ borderRadius: Radius.lg, borderWidth: 1, borderColor: amountError ? t.danger : t.border, backgroundColor: t.surface, padding: Spacing.lg, gap: Spacing.sm, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignSelf: 'stretch', justifyContent: 'space-between', alignItems: 'center' }}>
+          <T variant="overline">Amount</T>
+          {bal !== null && (
+            <Pressable testID="send-max" accessibilityRole="button" accessibilityLabel="Use maximum balance" onPress={() => setAmount(formatAmount(bal, token.decimals, token.decimals))} style={{ paddingHorizontal: Spacing.smd, paddingVertical: Spacing.xs, borderRadius: Radius.sm, backgroundColor: t.surfaceRaised }}>
+              <T variant="overline" style={{ color: t.primary }}>Max</T>
+            </Pressable>
+          )}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: Spacing.sm }}>
+          <TextInput
+            testID="amount"
+            accessibilityLabel="Amount"
+            value={amount}
+            onChangeText={setAmount}
+            placeholder="0"
+            placeholderTextColor={t.textTertiary}
+            keyboardType="decimal-pad"
+            {...keypadInputProps()}
+            style={[{ fontFamily: Fonts.ui, fontWeight: '300', fontVariant: ['tabular-nums'], fontSize: 56, lineHeight: 64, color: t.text, textAlign: 'center', width: Math.min(260, Math.max(1, (amount || '0').length) * 27 + 12), padding: 0 }, Tabular]}
+          />
+          <T style={{ fontFamily: Fonts.display, fontSize: 24, color: t.primary }}>{token.symbol}</T>
+        </View>
+        <T variant="caption" style={{ fontFamily: Fonts.mono }}>Available: {bal === null ? (balances.isPending ? 'loading…' : '—') : `${formatAmount(bal, token.decimals)} ${token.symbol}`}</T>
+        {amountError ? <T variant="error">{amountError}</T> : null}
       </View>
-      {scanNote && <T variant="caption">{scanNote}</T>}
-      {addr && !addr.ok && <T variant="error">{addr.reason}</T>}
-      <T variant="caption">Amount</T>
-      <Input testID="amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.0" />
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <T variant="caption">Balance: {bal === null ? '—' : `${formatAmount(bal, token.decimals)} ${token.symbol}`}</T>
-        {bal !== null && <T variant="caption" onPress={() => setAmount(formatAmount(bal, token.decimals, token.decimals))}>Max</T>}
-      </View>
-      {amount !== '' && amt === null && <T variant="error">Invalid amount</T>}
-      {over && <T variant="error">Exceeds balance</T>}
+      <Keypad onKey={onKey} testIDPrefix="amt" left={{ key: '.', label: '.', accessibilityLabel: 'Decimal point' }} />
       <Button
+        testID="send-review"
         title="Review"
         disabled={!ok}
         onPress={() =>

@@ -1,0 +1,42 @@
+# Maestro E2E: lock from Settings → wrong PIN stays locked → correct PIN unlocks to Home.
+# TESTNET ONLY (public test mnemonic). Needs a device/emulator.
+appId: com.vaultlite.demo
+name: Lock and unlock
+tags: [security, smoke]
+env:
+  MNEMONIC: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
+  PIN: "135790"
+---
+- runFlow: subflows/import-test-wallet.yaml
+- tapOn:
+    id: "tab-settings"
+- assertVisible:
+    id: "settings-hub"
+- scrollUntilVisible:
+    element:
+      id: "settings-lock"
+    direction: DOWN
+- tapOn:
+    id: "settings-lock"
+- extendedWaitUntil:
+    visible:
+      id: "lock"
+    timeout: 10000
+# Wrong PIN first: the wallet must stay locked.
+- runFlow:
+    file: subflows/enter-pin-keypad.yaml
+    env:
+      PIN: "000000"
+- assertVisible:
+    id: "lock"
+- assertNotVisible:
+    id: "home"
+# Correct PIN unlocks (KDF may take a few seconds).
+- runFlow:
+    file: subflows/enter-pin-keypad.yaml
+    env:
+      PIN: ${PIN}
+- extendedWaitUntil:
+    visible:
+      id: "home"
+    timeout: 30000

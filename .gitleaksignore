@@ -1,0 +1,3 @@
+# Historic fixture only (commit 871c5219): a WalletConnect v2 pairing URI in a unit test.
+# Pairing symKeys are single-use and expire within minutes; the fixture is now synthetic.
+871c52198859013b919a3d681ba44f3b9db834e3:src/__tests__/day3.test.ts:generic-api-key:18
