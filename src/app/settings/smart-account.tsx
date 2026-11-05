@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
 
 import { ErrorState, ListRow, Notice, Section } from '@/components/states';
 import { Screen, T } from '@/components/ui';
@@ -32,6 +33,7 @@ export default function SmartAccountScreen() {
         <ListRow icon="wallet" title="Address" value={q.data ? short(q.data.address) : q.isLoading ? 'Reading…' : '—'} />
         <ListRow icon="info" title="Status" value={q.data ? (q.data.deployed ? 'Deployed' : 'Counterfactual (deploys on first op)') : '—'} />
         <ListRow icon="key" title="Owner" value={owner ? short(owner) : '—'} />
+        <ListRow testID="row-batch" icon="send" title="Batch calls" subtitle="Approve and a contract call in one UserOp" onPress={() => router.push('/smart-account/batch')} />
       </Section>
       <Section title="Contracts" group>
         <ListRow icon="network" title="Factory" value={short(BASE_SEPOLIA_CONTRACTS.accountFactory)} />

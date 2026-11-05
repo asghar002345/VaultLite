@@ -37,7 +37,7 @@ export default function SettingsHub() {
         <ListRow testID="row-reveal-hub" icon="warning" title="Recovery phrase" subtitle="Reveal after entering your PIN" onPress={() => router.push('/settings/security/reveal')} />
       </Section>
       <Section title="Connections" group>
-        <ListRow testID="row-wc" icon="connect" title="Connected apps" value={!isReownConfigured() ? 'Not configured' : wc.isSuccess ? `${sessions} active` : '…'} onPress={() => router.navigate('/connect')} />
+        <ListRow testID="row-wc" icon="connect" title="Connected apps" value={!isReownConfigured() ? 'Not configured' : wc.isSuccess ? `${sessions} active` : '…'} onPress={() => router.push('/settings/connected-apps')} />
       </Section>
       <Section title="Networks & assets" group>
         <ListRow testID="row-networks" icon="network" title="Networks" value={st.hiddenChains.length ? `${st.hiddenChains.length} hidden` : 'All shown'} onPress={() => router.push('/settings/networks')} />

@@ -10,6 +10,7 @@ import {
   accountMessageDigest,
   DEFAULT_SALT,
   encodeExecute,
+  encodeExecuteBatch,
   encodeFactoryData,
   encodeInitData,
   nonceKeyFor,
@@ -53,6 +54,11 @@ export interface BuildOptions {
   sponsor?: false | { context?: Record<string, unknown> };
   /** When the proxy answers not_sponsorable: 'throw' (default; UI asks the user) or 'self-pay' (retry unsponsored). */
   onNotSponsorable?: 'throw' | 'self-pay';
+  /**
+   * Encode callData as ERC-7579 batch mode even for a single call.
+   * Multiple calls are always batched (`encodeExecute`).
+   */
+  batch?: boolean;
 }
 
 export interface ProviderOptions {
@@ -157,13 +163,13 @@ export class VaultLiteSmartAccountProvider implements SmartAccountProvider {
   }
 
   /** Unsigned op with stub signature, zero gas; factory fields only while undeployed. Chain reads only. */
-  async draftUserOperation(calls: Call[], signer: OpSigner = this.ownerSigner): Promise<UserOperation> {
+  async draftUserOperation(calls: Call[], signer: OpSigner = this.ownerSigner, opts: { batch?: boolean } = {}): Promise<UserOperation> {
     const [sender, deployed, nonce] = await Promise.all([this.getAddress(), this.isDeployed(), this.getNonce(signer.validator, signer.nonceLane ?? 0)]);
     return {
       sender,
       nonce,
       ...(deployed ? {} : { factory: this.cfg.factory!, factoryData: encodeFactoryData(this.initData, this.salt) }),
-      callData: encodeExecute(calls),
+      callData: opts.batch ? encodeExecuteBatch(calls) : encodeExecute(calls),
       callGasLimit: 0n,
       verificationGasLimit: 0n,
       preVerificationGas: 0n,
@@ -187,16 +193,31 @@ export class VaultLiteSmartAccountProvider implements SmartAccountProvider {
     const forceSelfPay = calls.some((c) => [self, C.sessionKeyValidator.toLowerCase()].includes(c.to.toLowerCase()));
     const sponsor = forceSelfPay ? false : opts.sponsor === undefined ? this.sponsor : opts.sponsor;
     try {
-      return await this.build(calls, signer, sponsor);
+      return await this.build(calls, signer, sponsor, !!opts.batch);
     } catch (e) {
-      if (sponsor && opts.onNotSponsorable === 'self-pay' && e instanceof BundlerRpcError && e.notSponsorable) return this.build(calls, signer, false);
+      if (sponsor && opts.onNotSponsorable === 'self-pay' && e instanceof BundlerRpcError && e.notSponsorable) return this.build(calls, signer, false, !!opts.batch);
       throw e;
     }
   }
 
-  private async build(calls: Call[], signer: OpSigner, sponsor: ProviderOptions['sponsor']): Promise<UserOperation> {
+  /**
+   * Gas quote for a self-paid op. Talks to the bundler proxy (gas price + estimate) and does not
+   * request paymaster data — batches are not sponsorable.
+   */
+  async quoteSelfPaid(calls: Call[], signer: OpSigner = this.ownerSigner, opts: { batch?: boolean } = {}) {
+    if (!this.bundler.configured) throw new BundlerNotConfiguredError();
     await this.bundler.assertEntryPointSupported();
-    let op: UserOperation = { ...(await this.draftUserOperation(calls, signer)), ...(await this.bundler.gasPrice()) };
+    const price = await this.bundler.gasPrice();
+    const draft: UserOperation = { ...(await this.draftUserOperation(calls, signer, opts)), ...price };
+    const gas = await this.bundler.estimateGas(draft);
+    const verificationGasLimit = gas.verificationGasLimit + (signer.verificationGasBuffer ?? 0n);
+    const totalGas = gas.callGasLimit + verificationGasLimit + gas.preVerificationGas;
+    return { gas: { ...gas, verificationGasLimit }, price, totalGas, maxCostWei: totalGas * price.maxFeePerGas };
+  }
+
+  private async build(calls: Call[], signer: OpSigner, sponsor: ProviderOptions['sponsor'], batch: boolean): Promise<UserOperation> {
+    await this.bundler.assertEntryPointSupported();
+    let op: UserOperation = { ...(await this.draftUserOperation(calls, signer, { batch })), ...(await this.bundler.gasPrice()) };
     let stub: PaymasterFields | null = null;
     if (sponsor) {
       stub = await this.bundler.paymasterStubData(op, sponsor.context);

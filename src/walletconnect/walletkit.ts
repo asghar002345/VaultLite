@@ -5,6 +5,7 @@ import { buildApprovedNamespaces, getSdkError } from '@walletconnect/utils';
 import { env, isReownConfigured } from '@/config/env';
 
 import { supportedNamespaces } from './namespaces';
+import { disconnectSessions } from './sessions-control';
 
 export type Proposal = WalletKitTypes.SessionProposal;
 export type SessionRequest = WalletKitTypes.SessionRequest;
@@ -104,6 +105,29 @@ export async function listSessions() {
 export async function disconnect(topic: string) {
   await (await getWalletKit()).disconnectSession({ topic, reason: getSdkError('USER_DISCONNECTED') });
   emit('onSessionsChanged');
+}
+
+/** Extend a session's expiry (WalletConnect adds another 7 days) and wait for the peer to ack. */
+export async function extendSession(topic: string) {
+  const res = await (await getWalletKit()).extendSession({ topic });
+  try {
+    await res.acknowledged();
+  } finally {
+    emit('onSessionsChanged');
+  }
+}
+
+/** Disconnect every active session. One failure does not skip the others. */
+export async function disconnectAll() {
+  const topics = (await listSessions()).map((s) => s.topic);
+  const result = await disconnectSessions(topics, async (topic) => {
+    await (await getWalletKit()).disconnectSession({ topic, reason: getSdkError('USER_DISCONNECTED') });
+  });
+  emit('onSessionsChanged');
+  if (result.failed.length) {
+    throw new Error(`Couldn't disconnect ${result.failed.map((f) => f.topic).join(', ')}`);
+  }
+  return result;
 }
 
 /** Pure helper for tests/UI: does the proposal ask only for chains we support? */
