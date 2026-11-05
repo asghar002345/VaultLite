@@ -30,9 +30,8 @@ Anything else → `404 chain_not_allowed`. Mainnets are never added (VaultLite i
 | `pimlico_getUserOperationStatus` | bundler | read (optional, useful for status UI) |
 | `pm_getPaymasterStubData` | paymaster (ERC-7677) | **sponsorship policy** |
 | `pm_getPaymasterData` | paymaster (ERC-7677) | **sponsorship policy** |
-| `pm_sponsorUserOperation` | paymaster (Pimlico, returns paymaster fields + gas limits) | **sponsorship policy** |
 
-Not allowed (examples): `pimlico_sendUserOperationNow`, `pimlico_simulateAssetChanges`, `pimlico_getTokenQuotes`, `pm_validateSponsorshipPolicies`, any `eth_*` node method (Pimlico rejects these anyway). → `403 method_not_allowed`.
+Not allowed (examples): `pm_sponsorUserOperation` (the app uses ERC-7677 only), `pimlico_sendUserOperationNow`, `pimlico_simulateAssetChanges`, `pimlico_getTokenQuotes`, `pm_validateSponsorshipPolicies`, any `eth_*` node method (Pimlico rejects these anyway). → `403 method_not_allowed`.
 
 EntryPoint allowlist: only v0.7 `0x0000000071727De22E5E9d8BAf0edAc6f37da032` (second param of the userOp methods) → else `400 entrypoint_not_allowed`.
 
@@ -54,7 +53,7 @@ Sliding window in Redis (`@upstash/ratelimit`), keys hashed:
 |---|---|---|
 | `ip:{x-forwarded-for first hop}` | 60 req / min, 1 000 / day | all methods |
 | `sender:{userOp.sender lowercase}` | 20 req / min | estimate / pm_* / send |
-| `sponsor:{sender}` | 10 sponsored ops / day, 50 / week | `pm_getPaymasterData`, `pm_sponsorUserOperation` |
+| `sponsor:{sender}` | 10 sponsored ops / day, 50 / week | `pm_getPaymasterData` |
 | `global:sponsor` | 2 000 / day | kill switch for spend |
 
 Exceeded → `429 rate_limited` with `Retry-After`. Reads (`eth_getUserOperationReceipt`, `…ByHash`, status) use a looser 120/min IP bucket since the app polls.
@@ -62,7 +61,12 @@ Exceeded → `429 rate_limited` with `Retry-After`. Reads (`eth_getUserOperation
 ## 4. Sponsorship policy (pm_* methods)
 Sponsor only if **all** hold; otherwise `403 not_sponsorable` (client may still send self-paid ops):
 1. `chainId == 84532`, EntryPoint v0.7.
-2. `callData` decodes as the account's `execute(target, value, data)` or `executeBatch(...)` and **every** target is `ESCROW_ADDRESS_84532`, or a token `approve(ESCROW_ADDRESS_84532, amount)` on an allowlisted test token (Circle Base Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`) batched before an escrow call.
+2. `callData` decodes as the account's ERC-7579 `execute(bytes32 mode, bytes executionCalldata)` (selector `0xe9ae5c53`; nothing else, in particular no `executeFromExecutor`/`installModule`/`executeUserOp`), and **every** inner call is allowlisted (see below). Decoder:
+   - `mode` byte 0 = callType, byte 1 = execType. Require execType `0x00` (default/revert); bytes 2..31 (unused, modeSelector, modePayload) must be zero.
+   - callType `0x00` **single**: `executionCalldata = abi.encodePacked(address target (20), uint256 value (32), bytes callData)`, i.e. target = bytes[0:20], value = bytes[20:52], callData = bytes[52:]. Require length ≥ 52.
+   - callType `0x01` **batch**: `executionCalldata = abi.encode(Execution[])` with `struct Execution { address target; uint256 value; bytes callData; }`. Decode with strict ABI decoding (bounds-checked offsets/lengths); require ≥ 1 element. Every element must pass the call allowlist.
+   - callType `0xfe` (**delegatecall**), `0xff` (static/other) and any other callType or execType (e.g. `0x01` try) → reject `not_sponsorable`.
+   - Allowed inner calls: target `ESCROW_ADDRESS_84532` with a selector from rule 3, or `approve(ESCROW_ADDRESS_84532, amount)` (`0x095ea7b3`, spender must equal the escrow) on an allowlisted test token (Circle Base Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`) batched before an escrow call. Any other target (the account itself, any module, SessionKeyValidator, other tokens) → reject. Calls that set up sessions or modules are therefore never sponsored; the app sends them self-paid.
 3. Escrow selector allowlist: `createEscrow`, `fund`, `submitMilestone`, `approveMilestone`, `approveMilestoneWithSig`, `claimAfterReview`, `raiseDispute`, `cancel`, `refundExpired`, `withdraw` (no `resolveDispute` unless sender is a known arbiter).
 4. `value` = 0 for sponsored calls except `fund` on native-token escrows (cap 0.05 ETH).
 5. If `factory`/`initCode` present → factory == `ACCOUNT_FACTORY_84532`.
@@ -101,7 +105,7 @@ const CHAINS: Record<string, string> = { '84532': 'https://api.pimlico.io/v2/845
 const READ = new Set(['eth_getUserOperationReceipt', 'eth_getUserOperationByHash', 'eth_supportedEntryPoints',
   'pimlico_getUserOperationGasPrice', 'pimlico_getUserOperationStatus']);
 const USEROP = new Set(['eth_sendUserOperation', 'eth_estimateUserOperationGas']);
-const SPONSOR = new Set(['pm_getPaymasterStubData', 'pm_getPaymasterData', 'pm_sponsorUserOperation']);
+const SPONSOR = new Set(['pm_getPaymasterStubData', 'pm_getPaymasterData']);
 
 const redis = Redis.fromEnv();
 const ipLimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, '1 m'), prefix: 'rl:ip' });
@@ -150,13 +154,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ chainId
     if (!sender || !(await senderLimit.limit(sender)).success) return rpcError(id, 429, -32005, 'rate_limited');
 
     if (SPONSOR.has(method)) {
-      const verdict = checkSponsorship(userOp, method);           // §4 rules 2–6 (decode execute/executeBatch,
+      const verdict = checkSponsorship(userOp, method);           // §4 rules 2–6 (decode ERC-7579 execute(mode, data): single/batch only,
       if (!verdict.ok) return rpcError(id, 403, -32002, 'not_sponsorable', { reason: verdict.reason }); // targets, selectors, factory, gas caps)
       if (method !== 'pm_getPaymasterStubData' && !(await sponsorQuota.limit(sender)).success)
         return rpcError(id, 429, -32005, 'rate_limited', { reason: 'daily sponsorship quota' });
       // Server decides the policy; ignore any client-supplied context (ERC-7677 4th param / Pimlico 3rd).
       const ctx = { sponsorshipPolicyId: process.env.PIMLICO_SPONSORSHIP_POLICY_ID };
-      forwardParams = method === 'pm_sponsorUserOperation' ? [userOp, entryPoint, ctx] : [userOp, entryPoint, (p as unknown[])[2], ctx];
+      forwardParams = [userOp, entryPoint, (p as unknown[])[2], ctx]; // ERC-7677: [op, entryPoint, chainIdHex, ctx]
     }
   }
 
