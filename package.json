@@ -91,7 +91,8 @@
   "jest": {
     "preset": "jest-expo",
     "testPathIgnorePatterns": [
-      "/node_modules/"
+      "/node_modules/",
+      "<rootDir>/proxy/"
     ],
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@noble/.*|@scure/.*|viem|ox|abitype)"

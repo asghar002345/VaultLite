@@ -102,12 +102,50 @@ describe('S1: session/module management is sent self-paid', () => {
     expect(mock.methods().some((m) => m.startsWith('pm_'))).toBe(false);
     expect(op.paymaster).toBeUndefined();
   });
-  it('not_sponsorable throws a typed error by default, falls back to self-paid when asked', async () => {
-    const e = await mk({ notSponsorable: true }).p.buildUserOperation(call).catch((x) => x);
+  it("not_sponsorable throws a typed error with onNotSponsorable: 'throw', falls back to self-paid when asked", async () => {
+    const e = await mk({ notSponsorable: true }).p.buildUserOperation(call, undefined, { onNotSponsorable: 'throw' }).catch((x) => x);
     expect(e).toBeInstanceOf(BundlerRpcError);
     expect(e.notSponsorable).toBe(true);
     const op = await mk({ notSponsorable: true }).p.buildUserOperation(call, undefined, { onNotSponsorable: 'self-pay' });
     expect(op.paymaster).toBeUndefined();
+  });
+});
+
+describe('proxy without sponsorship policy (403 / -32002 not_sponsorable)', () => {
+  // Exact response shape of proxy/lib/handler.js when PIMLICO_SPONSORSHIP_POLICY_ID is unset.
+  const proxyNoPolicy = (mock: ReturnType<typeof createMockBundler>, refused: string[]) => (async (url: string, init?: { body?: string }) => {
+    const req = JSON.parse(init?.body ?? '{}') as { id: number; method: string };
+    if (req.method.startsWith('pm_')) {
+      refused.push(req.method);
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: req.id, error: { code: -32002, message: 'not_sponsorable', data: { reason: 'no sponsorship policy configured; send self-paid' } } }), { status: 403, headers: { 'content-type': 'application/json' } });
+    }
+    return mock.fetcher(url, init as RequestInit);
+  }) as unknown as typeof fetch;
+  const mkNoPolicy = (providerOpts: { onNotSponsorable?: 'throw' | 'self-pay' } = {}) => {
+    const mock = createMockBundler();
+    const refused: string[] = [];
+    const bundler = new BundlerClient(URL, 84532, ENTRY_POINT_V07, proxyNoPolicy(mock, refused));
+    const p = new VaultLiteSmartAccountProvider({ ...SMART_ACCOUNT_CONFIG.baseSepolia!, bundlerUrl: URL }, fakeChain(), owner, { bundler, ...providerOpts });
+    return { p, mock, refused };
+  };
+
+  it('default provider: sponsored send completes self-paid', async () => {
+    const { p, mock, refused } = mkNoPolicy();
+    const { userOpHash } = await p.sendUserOperation(call);
+    expect(userOpHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(refused).toEqual(['pm_getPaymasterStubData']); // sponsorship attempted once, refused by the proxy
+    expect(mock.methods()).toContain('eth_sendUserOperation');
+    expect(mock.sent).toHaveLength(1);
+    expect(mock.sent[0].paymaster).toBeUndefined();
+    expect(mock.sent[0].paymasterData).toBeUndefined();
+  });
+  it("provider onNotSponsorable: 'throw' surfaces the typed error; per-op override wins", async () => {
+    const { p } = mkNoPolicy({ onNotSponsorable: 'throw' });
+    const e = await p.sendUserOperation(call).catch((x) => x);
+    expect(e).toBeInstanceOf(BundlerRpcError);
+    expect(e.notSponsorable).toBe(true);
+    expect(e.rpcCode).toBe(-32002);
+    await expect(p.sendUserOperation(call, undefined, { onNotSponsorable: 'self-pay' })).resolves.toHaveProperty('userOpHash');
   });
 });
 

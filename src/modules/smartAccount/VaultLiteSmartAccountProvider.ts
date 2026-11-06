@@ -52,7 +52,7 @@ export interface OpSigner {
 export interface BuildOptions {
   /** Per-op override of the provider default. Session/module management is never sponsored: pass false. */
   sponsor?: false | { context?: Record<string, unknown> };
-  /** When the proxy answers not_sponsorable: 'throw' (default; UI asks the user) or 'self-pay' (retry unsponsored). */
+  /** When the proxy answers not_sponsorable: 'self-pay' (retry unsponsored) or 'throw'. Default: the provider's onNotSponsorable. */
   onNotSponsorable?: 'throw' | 'self-pay';
   /**
    * Encode callData as ERC-7579 batch mode even for a single call.
@@ -66,6 +66,11 @@ export interface ProviderOptions {
   bundler?: BundlerClient;
   /** ERC-7677 sponsorship via the proxy's paymaster. `false` = account pays its own gas. Default: sponsored, empty context. */
   sponsor?: false | { context?: Record<string, unknown> };
+  /**
+   * Default for BuildOptions.onNotSponsorable. 'self-pay' (default): if the proxy refuses sponsorship
+   * (403 / -32002 not_sponsorable, e.g. no sponsorship policy configured) the op is rebuilt self-paid.
+   */
+  onNotSponsorable?: 'throw' | 'self-pay';
 }
 
 /** ERC-4337 v0.7 provider for the VaultLite SmartAccount (ECDSA owner validator, factory CREATE2). */
@@ -77,6 +82,7 @@ export class VaultLiteSmartAccountProvider implements SmartAccountProvider {
   private readonly initData: Hex;
   private readonly salt: Hex;
   private readonly sponsor: ProviderOptions['sponsor'];
+  private readonly onNotSponsorable: 'throw' | 'self-pay';
 
   constructor(
     private readonly cfg: SmartAccountChainConfig,
@@ -88,6 +94,7 @@ export class VaultLiteSmartAccountProvider implements SmartAccountProvider {
     this.chain = cfg.chain;
     this.salt = opts.salt ?? DEFAULT_SALT;
     this.sponsor = opts.sponsor ?? {};
+    this.onNotSponsorable = opts.onNotSponsorable ?? 'self-pay';
     this.initData = encodeInitData(owner.address);
     this.bundler = opts.bundler ?? new BundlerClient(cfg.bundlerUrl, this.chainId, cfg.entryPoint);
   }
@@ -195,7 +202,7 @@ export class VaultLiteSmartAccountProvider implements SmartAccountProvider {
     try {
       return await this.build(calls, signer, sponsor, !!opts.batch);
     } catch (e) {
-      if (sponsor && opts.onNotSponsorable === 'self-pay' && e instanceof BundlerRpcError && e.notSponsorable) return this.build(calls, signer, false, !!opts.batch);
+      if (sponsor && (opts.onNotSponsorable ?? this.onNotSponsorable) === 'self-pay' && e instanceof BundlerRpcError && e.notSponsorable) return this.build(calls, signer, false, !!opts.batch);
       throw e;
     }
   }
