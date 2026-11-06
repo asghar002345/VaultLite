@@ -80,6 +80,9 @@ function RootStack() {
         <Stack.Screen name="settings/currency" options={{ headerShown: true, title: 'Currency' }} />
         <Stack.Screen name="settings/about" options={{ headerShown: true, title: 'About' }} />
         <Stack.Screen name="settings/smart-account" options={{ headerShown: true, title: 'Smart account' }} />
+        <Stack.Screen name="settings/connected-apps" options={{ headerShown: true, title: 'Connected apps' }} />
+        <Stack.Screen name="smart-account/batch" options={{ headerShown: true, title: 'Batch calls' }} />
+        <Stack.Screen name="smart-account/batch-review" options={{ headerShown: true, title: 'Review batch' }} />
         <Stack.Screen name="settings/security/index" options={{ headerShown: true, title: 'Security' }} />
         <Stack.Screen name="settings/security/pin" options={{ headerShown: true, title: 'Change PIN' }} />
         <Stack.Screen name="settings/security/reveal" options={{ headerShown: true, title: 'Recovery phrase' }} />

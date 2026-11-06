@@ -41,6 +41,21 @@ export const encodeFactoryData = (initData: Hex, salt: Hex = DEFAULT_SALT): Hex 
 export const MODE_SINGLE: Hex = pad('0x00', { dir: 'right', size: 32 });
 export const MODE_BATCH: Hex = pad('0x01', { dir: 'right', size: 32 });
 
+const EXECUTION_ARRAY = [
+  { type: 'tuple[]', components: [{ name: 'target', type: 'address' }, { name: 'value', type: 'uint256' }, { name: 'callData', type: 'bytes' }] },
+] as const;
+
+/**
+ * One ERC-7579 `execute` in batch mode (callType 0x01): `abi.encode(Execution[])`.
+ * This is the account's executeBatch — every call in the array is a single UserOp.
+ * Unlike `encodeExecute`, a one-element array stays in batch mode.
+ */
+export function encodeExecuteBatch(calls: Call[]): Hex {
+  if (calls.length === 0) throw new Error('No calls');
+  const exec = encodeAbiParameters(EXECUTION_ARRAY, [calls.map((c) => ({ target: c.to, value: c.value ?? 0n, callData: c.data ?? '0x' }))]);
+  return encodeFunctionData({ abi: smartAccountAbi, functionName: 'execute', args: [MODE_BATCH, exec] });
+}
+
 export function encodeExecute(calls: Call[]): Hex {
   if (calls.length === 0) throw new Error('No calls');
   if (calls.length === 1) {
@@ -48,11 +63,7 @@ export function encodeExecute(calls: Call[]): Hex {
     const exec = concat([c.to, pad(toHex(c.value ?? 0n), { size: 32 }), c.data ?? '0x']);
     return encodeFunctionData({ abi: smartAccountAbi, functionName: 'execute', args: [MODE_SINGLE, exec] });
   }
-  const exec = encodeAbiParameters(
-    [{ type: 'tuple[]', components: [{ name: 'target', type: 'address' }, { name: 'value', type: 'uint256' }, { name: 'callData', type: 'bytes' }] }],
-    [calls.map((c) => ({ target: c.to, value: c.value ?? 0n, callData: c.data ?? '0x' }))],
-  );
-  return encodeFunctionData({ abi: smartAccountAbi, functionName: 'execute', args: [MODE_BATCH, exec] });
+  return encodeExecuteBatch(calls);
 }
 
 /** uint192 nonce key: validator(20) | key(4). */

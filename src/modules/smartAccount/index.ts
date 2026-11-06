@@ -6,3 +6,4 @@ export { aaCode, describeAAError } from './errors';
 export { UserOpHashMismatchError, VaultLiteSmartAccountProvider, type BuildOptions, type OpSigner, type ProviderOptions } from './VaultLiteSmartAccountProvider';
 export { readSmartAccountStatus } from './read';
 export * from './sessions';
+export * from './batch';
